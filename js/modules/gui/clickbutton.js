@@ -163,8 +163,8 @@ bento.define('bento/gui/clickbutton', [
             active = settings.active;
         }
 
-        // keep track of clickbuttons on tvOS and Windows
-        if (window.ejecta || window.Windows)
+        // keep track of clickbuttons on tvOS, Windows, and Poki
+        if (window.ejecta || window.Windows || window.poki) {
             entity.attach({
                 start: function () {
                     EventSystem.fire('clickbuttonAdded', entity);
@@ -173,6 +173,7 @@ bento.define('bento/gui/clickbutton', [
                     EventSystem.fire('clickbuttonRemoved', entity);
                 }
             });
+        }
 
         return entity;
     };

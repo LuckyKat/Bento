@@ -187,8 +187,8 @@ bento.define('bento/gui/togglebutton', [
             sprite.setAnimation(toggled ? 'down' : 'up');
         }
 
-        // keep track of togglebuttons on tvOS and Windows
-        if (window.ejecta || window.Windows)
+        // keep track of togglebuttons on tvOS, Windows, and Poki
+        if (window.ejecta || window.Windows || window.poki) {
             entity.attach({
                 start: function () {
                     EventSystem.fire('clickbuttonAdded', entity);
@@ -197,6 +197,7 @@ bento.define('bento/gui/togglebutton', [
                     EventSystem.fire('clickbuttonRemoved', entity);
                 }
             });
+        }
 
         return entity;
     };
