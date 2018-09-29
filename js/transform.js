@@ -22,10 +22,10 @@ bento.define('bento/transform', [
         this.entity = entity;
 
         // cache values
-        this.oldAlpha = 1;        
+        this.oldAlpha = 1;
         this.tx = 0;
-        this.ty = 0; 
-        this.sx = 1; 
+        this.ty = 0;
+        this.sx = 1;
         this.sy = 1;
         this.r = 0;
 
@@ -47,26 +47,23 @@ bento.define('bento/transform', [
         var sx = entity.scale.x;
         var sy = entity.scale.y;
 
-        // check validity of transforms, 0 scale can not be reversed
-        // Note: will also skip on 0 alpha, not sure if developer still expects draw functions to run if alpha 0
-        if (!sx || !sy || !alpha) {
-            return false;
-        }
-
-        renderer.save();
-
         // translate
         if (Transform.subPixel) {
             tx += entity.position.x + this.x;
             ty += entity.position.y + this.y;
         } else {
             tx += Math.round(entity.position.x + this.x);
-            ty += entity.position.y + this.y;
+            ty += Math.round(entity.position.y + this.y);
         }
         // scroll (only applies to parent objects)
         if (!entity.parent && !entity.float) {
             tx += -viewport.x;
             ty += -viewport.y;
+        }
+
+        //this is an 'irreversable' operation, so we'll have to use save and restore
+        if (!sx || !sy) {
+            renderer.save();
         }
 
         // transform
@@ -92,6 +89,12 @@ bento.define('bento/transform', [
     Transform.prototype.postDraw = function (data) {
         var renderer = data.renderer;
 
+        //this was an 'irreversable' operation, so we'll have to use save and restore
+        if (!this.sx || !this.sy) {
+            renderer.restore();
+            return;
+        }
+
         // restore transforms
         renderer.setOpacity(this.oldAlpha);
         renderer.scale(1 / this.sx, 1 / this.sy);
@@ -100,8 +103,6 @@ bento.define('bento/transform', [
             renderer.rotate(-this.r);
         }
         renderer.translate(-this.tx, -this.ty);
-
-        renderer.restore();
     };
 
     Transform.prototype.getWorldPosition = function () {
