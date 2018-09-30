@@ -38,14 +38,14 @@ bento.define('bento/transform', [
     Transform.prototype.draw = function (data) {
         var entity = this.entity;
         var matrix = this.matrix;
-        var alpha = entity.alpha;
-        var rotation = entity.rotation;
+        var alpha = entity.alpha || 0;
+        var rotation = entity.rotation || 0;
         var renderer = data.renderer;
         var viewport = data.viewport;
         var tx = 0;
         var ty = 0;
-        var sx = entity.scale.x;
-        var sy = entity.scale.y;
+        var sx = entity.scale.x || 0;
+        var sy = entity.scale.y || 0;
 
         // translate
         if (Transform.subPixel) {
@@ -61,14 +61,18 @@ bento.define('bento/transform', [
             ty += -viewport.y;
         }
 
+        //safeguard against NaN position
+        tx = tx || 0;
+        ty = ty || 0;
+
         //this is an 'irreversable' operation, so we'll have to use save and restore
-        if (!sx || !sy) {
+        if (!sx || !sy){
             renderer.save();
         }
 
         // transform
         renderer.translate(tx, ty);
-        if (entity.rotation % twoPi) {
+        if (rotation % twoPi) {
             // rotated?
             renderer.rotate(rotation);
         }
@@ -90,7 +94,7 @@ bento.define('bento/transform', [
         var renderer = data.renderer;
 
         //this was an 'irreversable' operation, so we'll have to use save and restore
-        if (!this.sx || !this.sy) {
+        if (!this.sx || !this.sy){
             renderer.restore();
             return;
         }
