@@ -123,6 +123,7 @@ bento.define("audia", [
             this._volume = 1;
             this._onended = null;
             this._onload = null;
+            this._startTime = Date.now();
 
             // Create gain node
             this.gainNode = audioContext.createGain();
@@ -248,7 +249,8 @@ bento.define("audia", [
         // currentTime (Number)
         Object.defineProperty(Audia.prototype, "currentTime", {
             get: function () {
-                return this._currentTime;
+                // return this._currentTime;
+                return Date.now() - this._startTime;
             },
             set: function (value) {
                 this._currentTime = value;
