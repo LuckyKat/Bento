@@ -71,7 +71,7 @@ bento.define('bento/sortedeventsystem', [
         this.rootZ = rootZ;
     };
 
-    var isLoopingEvents = false;
+    var isLoopingEvents = 0;
     var objects = null;
     var events = {};
     /*events = {
@@ -81,7 +81,7 @@ bento.define('bento/sortedeventsystem', [
     var cleanEventListeners = function () {
         var i, j, l, listeners, eventName, callback, context;
 
-        if (isLoopingEvents) {
+        if (isLoopingEvents > 0) {
             return;
         }
         for (j = 0, l = removedEvents.length; j < l; ++j) {
@@ -140,7 +140,7 @@ bento.define('bento/sortedeventsystem', [
             context: context
         });
 
-        if (!isLoopingEvents) {
+        if (isLoopingEvents === 0) {
             // can clean immediately
             cleanEventListeners();
         }
@@ -155,7 +155,7 @@ bento.define('bento/sortedeventsystem', [
             reset: true
         });
 
-        if (!isLoopingEvents) {
+        if (isLoopingEvents === 0) {
             // can clean immediately
             cleanEventListeners();
         }
@@ -291,8 +291,8 @@ bento.define('bento/sortedeventsystem', [
             inspectSortingData(listeners);
             sortListeners(listeners);
 
+            isLoopingEvents++;
             for (i = 0, l = listeners.length; i < l; ++i) {
-                isLoopingEvents = true;
                 listener = listeners[i];
                 if (listener) {
                     if (listener.context) {
@@ -312,7 +312,7 @@ bento.define('bento/sortedeventsystem', [
                     break;
                 }
             }
-            isLoopingEvents = false;
+            isLoopingEvents--;
         },
         addEventListener: addEventListener,
         removeEventListener: removeEventListener,

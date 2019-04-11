@@ -16,7 +16,7 @@ EventSystem.fire('${1}', ${2:data});
 bento.define('bento/eventsystem', [
     'bento/utils'
 ], function (Utils) {
-    var isLoopingEvents = false;
+    var isLoopingEvents = 0;
     var events = {};
     /*events = {
             [String eventName]: [Array listeners = {callback: Function, context: this}]
@@ -25,7 +25,7 @@ bento.define('bento/eventsystem', [
     var cleanEventListeners = function () {
         var i, j, l, listeners, eventName, callback, context;
 
-        if (isLoopingEvents) {
+        if (isLoopingEvents > 0) {
             return;
         }
         for (j = 0, l = removedEvents.length; j < l; ++j) {
@@ -77,7 +77,7 @@ bento.define('bento/eventsystem', [
             context: context
         });
 
-        if (!isLoopingEvents) {
+        if (isLoopingEvents === 0) {
             // can clean immediately
             cleanEventListeners();
         }
@@ -92,7 +92,7 @@ bento.define('bento/eventsystem', [
             reset: true
         });
 
-        if (!isLoopingEvents) {
+        if (isLoopingEvents === 0) {
             // can clean immediately
             cleanEventListeners();
         }
@@ -148,8 +148,8 @@ bento.define('bento/eventsystem', [
                 return;
             }
             listeners = events[eventName];
+            isLoopingEvents++;
             for (i = 0, l = listeners.length; i < l; ++i) {
-                isLoopingEvents = true;
                 listener = listeners[i];
                 if (listener) {
                     if (listener.context) {
@@ -170,7 +170,7 @@ bento.define('bento/eventsystem', [
                 }
 
             }
-            isLoopingEvents = false;
+            isLoopingEvents--;
         },
         addEventListener: addEventListener,
         removeEventListener: removeEventListener,
