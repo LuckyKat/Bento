@@ -175,6 +175,7 @@ bento.define('bento/renderers/pixi', [
                 graphics.worldAlpha = alpha;
 
                 graphics
+                    .moveTo(Math.cos(sAngle) * radius, Math.sin(sAngle) * radius)
                     .lineStyle(lineWidth, colorInt, alphaColor)
                     .arc(x, y, radius, sAngle, eAngle);
 
