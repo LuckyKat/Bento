@@ -6,8 +6,15 @@ bento.define('bento/renderers/pixi', [
     'bento',
     'bento/utils',
     'bento/math/transformmatrix',
-    'bento/renderers/canvas2d'
-], function (Bento, Utils, TransformMatrix, Canvas2d) {
+    'bento/renderers/canvas2d',
+    'bento/eventsystem'
+], function (
+    Bento,
+    Utils,
+    TransformMatrix,
+    Canvas2d,
+    EventSystem
+) {
     var PIXI = window.PIXI;
     var SpritePool = function (initialSize) {
         var i;
@@ -80,6 +87,8 @@ bento.define('bento/renderers/pixi', [
         var tempDisplayObjectParent = null;
         var spritePool = new SpritePool(2000);
         var graphicsPool = new GraphicsPool(500);
+        var imgTexMap = [];
+        var guidImgMap = [];
         var transformObject = {
             worldTransform: null,
             worldAlpha: 1,
@@ -215,10 +224,18 @@ bento.define('bento/renderers/pixi', [
                     console.error("Warning: image and frame size do not correspond.", image);
                     return;
                 }
-                if (!image.texture) {
-                    // initialize pixi baseTexture
-                    image.texture = new PIXI.BaseTexture(image, Bento.getAntiAlias() ? PIXI.SCALE_MODES.LINEAR : PIXI.SCALE_MODES.NEAREST);
-                    image.frame = new PIXI.Texture(image.texture);
+
+                if (image.__texGuid === undefined) {
+                    texture = new PIXI.Texture(new PIXI.BaseTexture(image, Bento.getAntiAlias() ? PIXI.SCALE_MODES.LINEAR : PIXI.SCALE_MODES.NEAREST));
+                    image.__texGuid = imgTexMap.length;
+                    imgTexMap[image.__texGuid] = texture;
+                    guidImgMap[image.__texGuid] = image;
+                    console.log('PIXI texture cache size:' + imgTexMap.length);
+                } else if (image.__resetTexture) {
+                    texture = new PIXI.Texture(new PIXI.BaseTexture(image, Bento.getAntiAlias() ? PIXI.SCALE_MODES.LINEAR : PIXI.SCALE_MODES.NEAREST));
+                    imgTexMap[image.__texGuid].destroy();
+                    imgTexMap[image.__texGuid] = texture;
+                    image.__resetTexture = false;
                 }
                 // without spritepool
                 /*
@@ -229,7 +246,7 @@ bento.define('bento/renderers/pixi', [
                 */
 
                 // with spritepool
-                texture = image.frame;
+                texture = imgTexMap[image.__texGuid];
                 rectangle = texture._frame;
                 rectangle.x = px + sx;
                 rectangle.y = py + sy;
@@ -274,6 +291,10 @@ bento.define('bento/renderers/pixi', [
                 if (pixelSize !== 1 || Utils.isCocoonJs()) {
                     this.restore();
                 }
+                if (imgTexMap.length >= 50) {
+                    console.warn('storing too many textures! clearing automatically');
+                    renderer.clearTextures();
+                }
             },
             getOpacity: function () {
                 return alpha;
@@ -308,8 +329,24 @@ bento.define('bento/renderers/pixi', [
             // pixi specific: update the webgl view, needed if the canvas changed size
             updateSize: function () {
                 pixiRenderer.resize(canvas.width, canvas.height);
+            },
+            clearTextures: function () {
+                var i;
+                for (i = 0; i < guidImgMap.length; i++) {
+                    imgTexMap[i].destroy();
+                    guidImgMap[i].__texGuid = undefined;
+
+                    delete guidImgMap[i].__texGuid;
+                    delete guidImgMap[i].__resetTexture;
+                }
+                imgTexMap.length = 0;
+                guidImgMap.length = 0;
             }
         };
+
+        EventSystem.on('screenHidden', function () {
+            renderer.clearTextures();
+        });
 
         if (canWebGl && Utils.isDefined(window.PIXI)) {
             // init pixi

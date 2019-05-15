@@ -229,7 +229,7 @@ bento.define('bento/tiled', [
                 context.scale(1 / sx, 1 / sy);
                 context.rotate(-rotation);
                 context.translate(-tx, -ty);
-                
+
                 // context.restore();
             },
             dispose: function () {
@@ -241,10 +241,6 @@ bento.define('bento/tiled', [
                                 if (canvas.dispose) {
                                     // destroy Cocoon texture
                                     canvas.dispose();
-                                }
-                                if (canvas.texture && canvas.texture.destroy) {
-                                    // destroy PixiJS texture
-                                    canvas.texture.destroy();
                                 }
                             }
                         });
@@ -706,7 +702,7 @@ bento.define('bento/tiled', [
              */
             layerImages: layerSprites,
             /**
-             * Clear cached modules if cacheModules is true (the cache is global, 
+             * Clear cached modules if cacheModules is true (the cache is global,
              * developer need to call this manually to clear the memory)
              * @instance
              * @name clearModuleCache
@@ -715,7 +711,7 @@ bento.define('bento/tiled', [
                 cachedModules = {};
             },
             /**
-             * Clear cached modules if cacheModules is true (the cache is global, 
+             * Clear cached modules if cacheModules is true (the cache is global,
              * developer need to call this manually to clear the memory)
              * @instance
              * @name clearCanvasCache

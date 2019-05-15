@@ -2303,43 +2303,29 @@ bento.define('bento', [
     /**
      * Callback for responsive resizing
      */
-    var onResize = function () {
+    var performResize = function () {
         var viewport = Bento.getViewport();
-        var pixiRenderer;
         var screenSize = Utils.getScreenSize();
+        var pixiRenderer;
         var pixelSize = bentoSettings.pixelSize;
         var minWidth = bentoSettings.responsiveResize.minWidth;
         var maxWidth = bentoSettings.responsiveResize.maxWidth;
         var minHeight = bentoSettings.responsiveResize.minHeight;
         var maxHeight = bentoSettings.responsiveResize.maxHeight;
-        var landscape = bentoSettings.responsiveResize.landscape;
-        // lock width, fill height
+        var lockedRotation = bentoSettings.responsiveResize.lockedRotation;
+
+        // get scaled screen res
         var canvasDimension = new AutoResize(
-            new Rectangle(0, 0, minWidth, minHeight),
-            landscape ? minWidth : minHeight,
-            landscape ? maxWidth : maxHeight,
-            landscape
+            minWidth,
+            maxWidth,
+            minHeight,
+            maxHeight,
+            lockedRotation
         );
 
+        // we don't have a canvas?
         if (!canvas) {
             return;
-        }
-
-        // respect max/min of other dimension
-        if (landscape) {
-            if (canvasDimension.height > maxHeight) {
-                canvasDimension.height = maxHeight;
-            }
-            if (canvasDimension.height < minHeight) {
-                canvasDimension.height = minHeight;
-            }
-        } else {
-            if (canvasDimension.width > maxWidth) {
-                canvasDimension.width = maxWidth;
-            }
-            if (canvasDimension.width < minWidth) {
-                canvasDimension.width = minWidth;
-            }
         }
 
         // set canvas and viewport sizes
@@ -2350,13 +2336,8 @@ bento.define('bento', [
 
         // css fit to height
         if (canvas.style) {
-            if (landscape) {
-                canvas.style.width = screenSize.width + 'px';
-                canvas.style.height = (screenSize.width / (viewport.width / viewport.height)) + 'px';
-            } else {
-                canvas.style.height = screenSize.height + 'px';
-                canvas.style.width = (screenSize.height * (viewport.width / viewport.height)) + 'px';
-            }
+            canvas.style.height = screenSize.height + 'px';
+            canvas.style.width = (screenSize.height * (viewport.width / viewport.height)) + 'px';
         }
 
         // log results
@@ -2374,9 +2355,20 @@ bento.define('bento', [
                 // use the resize function on pixi
                 pixiRenderer = Bento.getRenderer().getPixiRenderer();
                 pixiRenderer.resize(canvas.width, canvas.height);
-            } 
-
+            }
         }
+        // update input and canvas
+        Bento.input.updateCanvas();
+        // clear the task id
+        resizeTaskId = null;
+    };
+    var resizeTaskId = null;
+    var onResize = function () {
+        // start a 100ms timeout, if interupted with a repeat event start over
+        if (resizeTaskId != null) {
+            window.clearTimeout(resizeTaskId);
+        }
+        resizeTaskId = window.setTimeout(performResize, 100);
     };
     /**
      * Take screenshots based on events
@@ -2435,12 +2427,12 @@ bento.define('bento', [
          * @param {Boolean} settings.preventContextMenu - Stops the context menu from appearing in browsers when using right click
          * @param {Boolean} settings.autoDisposeTextures - Removes all internal textures on screen ends to reduce memory usage
          * @param {Object} settings.responsiveResize - Bento's strategy of resizing to mobile screen sizes. 
-         * In case of portrait: Bento locks the width and fills the height. If min/max height is reached, the width is adapted up to its min/max.
-         * @param {Boolean} settings.responsiveResize.landscape - Portrait (false) or Landscape (true)
-         * @param {Number} settings.responsiveResize.minWidth - Minimum width
-         * @param {Number} settings.responsiveResize.maxWidth - Maximum width
-         * @param {Number} settings.responsiveResize.minHeight - Minimum height
-         * @param {Number} settings.responsiveResize.maxHeight - Maximum height
+         * In case of portrait: Bento locks the  min height and fills the width by aspect ratio until the max width is reached. If min width is reached, the height is then adapted by aspect ratio up to it's defined maximum.
+         * @param {Number} settings.responsiveResize.minWidth - Minimum width in portrait.
+         * @param {Number} settings.responsiveResize.maxWidth - Maximum width in portrait.
+         * @param {Number} settings.responsiveResize.minHeight - Minimum height in portrait.
+         * @param {Number} settings.responsiveResize.maxHeight - Maximum height in portrait.
+         * @param {String} settings.responsiveResize.lockedRotation - 'portrait' or 'landscape' enforces an aspect ratio corrseponding to this, instead of handling this automatically, unnecessary to be used if enforcable by another means
          * @param {Object} settings.reload - Settings for module reloading, set the event names for Bento to listen
          * @param {String} settings.reload.simple - Event name for simple reload: reloads modules and resets current screen
          * @param {String} settings.reload.assets - Event name for asset reload: reloads modules and all assets and resets current screen
@@ -7858,10 +7850,6 @@ bento.define('bento/managers/asset', [
                 if (img._dispose) {
                     img._dispose();
                 }
-                // pixi
-                if (img.texture && img.texture.destroy) {
-                    img.texture.destroy();
-                }
             };
 
             // cocoon lazy load, might be useful some day?
@@ -8173,7 +8161,7 @@ bento.define('bento/managers/asset', [
                 checkForCompletion();
             };
             var linkSkinWithImage = function (textureAtlas) {
-                // In order for the lazy loading to work, we need to know 
+                // In order for the lazy loading to work, we need to know
                 // what skin is related to which image. Spine will not do this out of the box
                 // so we will have to parse the skeleton json and atlas manually and make
                 // think link ourselves.
@@ -8746,7 +8734,7 @@ bento.define('bento/managers/asset', [
         var unload = function (groupName, dispose) {
             // find all assets in this group
             var assetGroup = assetGroups[groupName];
-            
+
             dispose = Utils.getDefault(dispose, true);
 
             if (!assetGroup) {
@@ -9742,7 +9730,8 @@ bento.define('bento/managers/input', [
                 evt.id = -1;
             },
             updatePointer = function (evt) {
-                var i = 0, l;
+                var i = 0,
+                    l;
                 for (i = 0, l = pointers.length; i < l; ++i) {
                     if (pointers[i].id === evt.id) {
                         pointers[i].position = evt.position;
@@ -9753,7 +9742,8 @@ bento.define('bento/managers/input', [
                 }
             },
             removePointer = function (evt) {
-                var i = 0, l;
+                var i = 0,
+                    l;
                 for (i = 0, l = pointers.length; i < l; ++i) {
                     if (pointers[i].id === evt.id) {
                         pointers.splice(i, 1);
@@ -9996,7 +9986,8 @@ bento.define('bento/managers/input', [
              * continually checking for input is the only way for now.
              */
             initRemote = function () {
-                var i = 0, l,
+                var i = 0,
+                    l,
                     tvOSGamepads;
 
                 if (window.ejecta) {
@@ -10033,7 +10024,8 @@ bento.define('bento/managers/input', [
                 }
             },
             remoteButtonDown = function (id) {
-                var i = 0, l,
+                var i = 0,
+                    l,
                     names = Utils.remoteMapping[id];
                 // save value in array
                 remoteButtonsPressed[id] = true;
@@ -10042,7 +10034,8 @@ bento.define('bento/managers/input', [
                     remoteButtonStates[names[i]] = true;
             },
             remoteButtonUp = function (id) {
-                var i = 0, l,
+                var i = 0,
+                    l,
                     names = Utils.remoteMapping[id];
                 // save value in array
                 remoteButtonsPressed[id] = false;
@@ -10148,8 +10141,6 @@ bento.define('bento/managers/input', [
         // note: it's a bit tricky with order of event listeners, make sure resizing is done first
         // otherwise updateCanvas needs to be called manually afterwards
         if (canvas) {
-            window.addEventListener('resize', updateCanvas, false);
-            window.addEventListener('orientationchange', updateCanvas, false);
             updateCanvas();
         }
 
@@ -13104,73 +13095,48 @@ bento.define('bento/math/vector2', [
     return Vector2;
 });
 /**
- * A helper module that returns a rectangle with the same aspect ratio as the screen size.
- * Assuming portrait mode, autoresize holds the width and then fills up the height
+ * A helper module that returns an object with a correctly sized width and height for the aspect ratio
+ * 'type' defines the allowed orientation
  * If the height goes over the max or minimum size, then the width gets adapted.
  * <br>Exports: Constructor
  * @module bento/autoresize
  * @moduleName AutoResize
- * @param {Rectangle} canvasDimension - Default size
- * @param {Number} minSize - Minimal height (in portrait mode), if the height goes lower than this,
- * then autoresize will start filling up the width
- * @param {Boolean} isLandscape - Game is landscape, swap operations of width and height
- * @returns Rectangle
+ * @param {Number} minWidth - Lowest clamped width in portrait. Smaller than this, and height is scaled up to fit the aspect ratio. Acts as a 'target dimension'
+ * @param {Number} maxWidth - Max clamped width in portrait.
+ * @param {Number} minHeight - Lowest clamped height in portrait. . Smaller than this, and width is scaled up to fit the aspect ratio. Acts as a 'target dimension'
+ * @param {Number} maxHeight - Max clamped height in portrait.
+ * @param {String} lockedRotation - 'portrait' or 'landscape' - Enforces an aspect ratio for one or the other, not necessary if forcable by other means
+ * @returns Object
  */
 bento.define('bento/autoresize', [
     'bento/utils'
 ], function (Utils) {
-    return function (canvasDimension, minSize, maxSize, isLandscape) {
-        var originalDimension = canvasDimension.clone(),
-            screenSize = Utils.getScreenSize(),
-            innerWidth = screenSize.width,
-            innerHeight = screenSize.height,
-            devicePixelRatio = window.devicePixelRatio,
-            deviceHeight = !isLandscape ? innerHeight * devicePixelRatio : innerWidth * devicePixelRatio,
-            deviceWidth = !isLandscape ? innerWidth * devicePixelRatio : innerHeight * devicePixelRatio,
-            swap = function () {
-                // swap width and height
-                var temp = canvasDimension.width;
-                canvasDimension.width = canvasDimension.height;
-                canvasDimension.height = temp;
-            },
-            setup = function () {
-                var ratio = deviceWidth / deviceHeight;
+    return function (minWidth, maxWidth, minHeight, maxHeight, lockedRotation) {
+        var screenSize = Utils.getScreenSize();
+        // get the ration of screen height to width 
+        var ratio = screenSize.width / screenSize.height;
+        // work out if we are currently in portrait or landscape
+        var isPortrait = (ratio <= 1);
 
-                if (ratio > 1) {
-                    // user is holding device wrong
-                    ratio = 1 / ratio;
-                }
-
-                canvasDimension.height = Math.round(canvasDimension.width / ratio);
-
-                // exceed min size?
-                if (canvasDimension.height < minSize) {
-                    canvasDimension.height = minSize;
-                    canvasDimension.width = Math.round(ratio * canvasDimension.height);
-                }
-                if (canvasDimension.height > maxSize) {
-                    canvasDimension.height = maxSize;
-                    canvasDimension.width = Math.round(ratio * canvasDimension.height);
-                }
-
-                if (isLandscape) {
-                    swap();
-                }
-
-                return canvasDimension;
-            },
-            scrollAndResize = function () {
-                window.scrollTo(0, 0);
-            };
-
-
-        window.addEventListener('orientationchange', scrollAndResize, false);
-
-        if (isLandscape) {
-            swap();
+        //force a specific rotation
+        switch (lockedRotation) {
+        case 'portrait':
+            isPortrait = true;
+            break;
+        case 'landscape':
+            isPortrait = false;
+            break;
         }
 
-        return setup();
+        // create new object with correctly scaled and clamped dimensions
+        var newDimension = (isPortrait) ? {
+            width: Math.ceil(Utils.clamp(minWidth, minHeight * ratio, maxWidth)),
+            height: Math.ceil(Utils.clamp(minHeight, minWidth / ratio, maxHeight))
+        } : {
+            width: Math.ceil(Utils.clamp(minHeight, minWidth * ratio, maxHeight)),
+            height: Math.ceil(Utils.clamp(minWidth, minHeight / ratio, maxWidth))
+        };
+        return newDimension;
     };
 });
 /**
@@ -13237,13 +13203,7 @@ bento.define('bento/canvas', [
             // clear canvas
             var context = obj.getContext('2d');
             context.clearRect(0, 0, obj.width, obj.height);
-            // clear texture
-            if (obj.texture) {
-                if (obj.texture.destroy) {
-                    obj.texture.destroy();
-                }
-                obj.texture = null;
-            }
+
             return obj;
         }
     });
@@ -13275,13 +13235,8 @@ bento.define('bento/canvas', [
                     context.clearRect(0, 0, canvas.width, canvas.height);
                 }
 
-                // clear up webgl
-                if (canvas.texture) {
-                    if (canvas.texture.destroy) {
-                        canvas.texture.destroy();
-                    }
-                    canvas.texture = null;
-                }
+                // request pixi renderer to reset this texture
+               canvas.__resetTexture = true;
 
                 // swap renderer
                 originalRenderer = data.renderer;
@@ -15315,6 +15270,12 @@ bento.define('bento/gui/text', [
             // update baseobject
             entity.dimension = new Rectangle(0, 0, canvas.width / sharpness, canvas.height / sharpness);
 
+            if (align === 'center') entity.dimension.x = -entity.dimension.width/2;
+            if (align === 'right') entity.dimension.x = -entity.dimension.width;
+
+            if (textBaseline === 'middle') entity.dimension.y = -entity.dimension.height/2;
+            if (textBaseline === 'bottom') entity.dimension.y = -entity.dimension.height;
+
             // TODO: fix this if needed
             // fit overlay onto canvas
             if (overlaySprite) {
@@ -15429,11 +15390,9 @@ bento.define('bento/gui/text', [
             }
             restoreContext(ctx);
 
-            // delete texture in case of pixi
-            if (canvas.texture && canvas.texture.destroy) {
-                canvas.texture.destroy();
-            }
-            canvas.texture = null;
+            // request pixi renderer to reset this texture
+            canvas.__resetTexture = true;
+
             packedImage = new PackedImage(canvas);
             sprite.setup({
                 image: packedImage
@@ -15492,7 +15451,7 @@ bento.define('bento/gui/text', [
                     applySettings(settings);
                 }
             }
-            
+
             strings = [];
             canvasWidth = 1;
             canvasHeight = 1;
@@ -15717,10 +15676,7 @@ bento.define('bento/gui/text', [
                         // destroy Cocoon texture
                         canvas.dispose();
                     }
-                    if (canvas.texture && canvas.texture.destroy) {
-                        // destroy PixiJS texture
-                        canvas.texture.destroy();
-                    }
+
                     canvas = null;
                     packedImage = null;
                 }
@@ -17070,7 +17026,7 @@ bento.define('bento/tiled', [
                 context.scale(1 / sx, 1 / sy);
                 context.rotate(-rotation);
                 context.translate(-tx, -ty);
-                
+
                 // context.restore();
             },
             dispose: function () {
@@ -17082,10 +17038,6 @@ bento.define('bento/tiled', [
                                 if (canvas.dispose) {
                                     // destroy Cocoon texture
                                     canvas.dispose();
-                                }
-                                if (canvas.texture && canvas.texture.destroy) {
-                                    // destroy PixiJS texture
-                                    canvas.texture.destroy();
                                 }
                             }
                         });
@@ -17547,7 +17499,7 @@ bento.define('bento/tiled', [
              */
             layerImages: layerSprites,
             /**
-             * Clear cached modules if cacheModules is true (the cache is global, 
+             * Clear cached modules if cacheModules is true (the cache is global,
              * developer need to call this manually to clear the memory)
              * @instance
              * @name clearModuleCache
@@ -17556,7 +17508,7 @@ bento.define('bento/tiled', [
                 cachedModules = {};
             },
             /**
-             * Clear cached modules if cacheModules is true (the cache is global, 
+             * Clear cached modules if cacheModules is true (the cache is global,
              * developer need to call this manually to clear the memory)
              * @instance
              * @name clearCanvasCache
@@ -18317,6 +18269,8 @@ bento.define('bento/tween', [
         // one wants to see the tween move during that pause
         if (!Utils.isDefined(settings.updateWhenPaused)) {
             tweenBehavior.updateWhenPaused = Bento.objects.isPaused();
+        } else {
+            tweenBehavior.updateWhenPaused = settings.updateWhenPaused;
         }
 
         // tween automatically starts
@@ -18757,8 +18711,15 @@ bento.define('bento/renderers/pixi', [
     'bento',
     'bento/utils',
     'bento/math/transformmatrix',
-    'bento/renderers/canvas2d'
-], function (Bento, Utils, TransformMatrix, Canvas2d) {
+    'bento/renderers/canvas2d',
+    'bento/eventsystem'
+], function (
+    Bento,
+    Utils,
+    TransformMatrix,
+    Canvas2d,
+    EventSystem
+) {
     var PIXI = window.PIXI;
     var SpritePool = function (initialSize) {
         var i;
@@ -18831,6 +18792,8 @@ bento.define('bento/renderers/pixi', [
         var tempDisplayObjectParent = null;
         var spritePool = new SpritePool(2000);
         var graphicsPool = new GraphicsPool(500);
+        var imgTexMap = [];
+        var guidImgMap = [];
         var transformObject = {
             worldTransform: null,
             worldAlpha: 1,
@@ -18966,10 +18929,18 @@ bento.define('bento/renderers/pixi', [
                     console.error("Warning: image and frame size do not correspond.", image);
                     return;
                 }
-                if (!image.texture) {
-                    // initialize pixi baseTexture
-                    image.texture = new PIXI.BaseTexture(image, Bento.getAntiAlias() ? PIXI.SCALE_MODES.LINEAR : PIXI.SCALE_MODES.NEAREST);
-                    image.frame = new PIXI.Texture(image.texture);
+
+                if (image.__texGuid === undefined) {
+                    texture = new PIXI.Texture(new PIXI.BaseTexture(image, Bento.getAntiAlias() ? PIXI.SCALE_MODES.LINEAR : PIXI.SCALE_MODES.NEAREST));
+                    image.__texGuid = imgTexMap.length;
+                    imgTexMap[image.__texGuid] = texture;
+                    guidImgMap[image.__texGuid] = image;
+                    console.log('PIXI texture cache size:' + imgTexMap.length);
+                } else if (image.__resetTexture) {
+                    texture = new PIXI.Texture(new PIXI.BaseTexture(image, Bento.getAntiAlias() ? PIXI.SCALE_MODES.LINEAR : PIXI.SCALE_MODES.NEAREST));
+                    imgTexMap[image.__texGuid].destroy();
+                    imgTexMap[image.__texGuid] = texture;
+                    image.__resetTexture = false;
                 }
                 // without spritepool
                 /*
@@ -18980,7 +18951,7 @@ bento.define('bento/renderers/pixi', [
                 */
 
                 // with spritepool
-                texture = image.frame;
+                texture = imgTexMap[image.__texGuid];
                 rectangle = texture._frame;
                 rectangle.x = px + sx;
                 rectangle.y = py + sy;
@@ -19025,6 +18996,10 @@ bento.define('bento/renderers/pixi', [
                 if (pixelSize !== 1 || Utils.isCocoonJs()) {
                     this.restore();
                 }
+                if (imgTexMap.length >= 50) {
+                    console.warn('storing too many textures! clearing automatically');
+                    renderer.clearTextures();
+                }
             },
             getOpacity: function () {
                 return alpha;
@@ -19059,8 +19034,24 @@ bento.define('bento/renderers/pixi', [
             // pixi specific: update the webgl view, needed if the canvas changed size
             updateSize: function () {
                 pixiRenderer.resize(canvas.width, canvas.height);
+            },
+            clearTextures: function () {
+                var i;
+                for (i = 0; i < guidImgMap.length; i++) {
+                    imgTexMap[i].destroy();
+                    guidImgMap[i].__texGuid = undefined;
+
+                    delete guidImgMap[i].__texGuid;
+                    delete guidImgMap[i].__resetTexture;
+                }
+                imgTexMap.length = 0;
+                guidImgMap.length = 0;
             }
         };
+
+        EventSystem.on('screenHidden', function () {
+            renderer.clearTextures();
+        });
 
         if (canWebGl && Utils.isDefined(window.PIXI)) {
             // init pixi

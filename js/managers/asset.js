@@ -203,10 +203,6 @@ bento.define('bento/managers/asset', [
                 if (img._dispose) {
                     img._dispose();
                 }
-                // pixi
-                if (img.texture && img.texture.destroy) {
-                    img.texture.destroy();
-                }
             };
 
             // cocoon lazy load, might be useful some day?
@@ -518,7 +514,7 @@ bento.define('bento/managers/asset', [
                 checkForCompletion();
             };
             var linkSkinWithImage = function (textureAtlas) {
-                // In order for the lazy loading to work, we need to know 
+                // In order for the lazy loading to work, we need to know
                 // what skin is related to which image. Spine will not do this out of the box
                 // so we will have to parse the skeleton json and atlas manually and make
                 // think link ourselves.
@@ -1091,7 +1087,7 @@ bento.define('bento/managers/asset', [
         var unload = function (groupName, dispose) {
             // find all assets in this group
             var assetGroup = assetGroups[groupName];
-            
+
             dispose = Utils.getDefault(dispose, true);
 
             if (!assetGroup) {

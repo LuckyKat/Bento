@@ -548,11 +548,9 @@ bento.define('bento/gui/text', [
             }
             restoreContext(ctx);
 
-            // delete texture in case of pixi
-            if (canvas.texture && canvas.texture.destroy) {
-                canvas.texture.destroy();
-            }
-            canvas.texture = null;
+            // request pixi renderer to reset this texture
+            canvas.__resetTexture = true;
+
             packedImage = new PackedImage(canvas);
             sprite.setup({
                 image: packedImage
@@ -836,10 +834,7 @@ bento.define('bento/gui/text', [
                         // destroy Cocoon texture
                         canvas.dispose();
                     }
-                    if (canvas.texture && canvas.texture.destroy) {
-                        // destroy PixiJS texture
-                        canvas.texture.destroy();
-                    }
+
                     canvas = null;
                     packedImage = null;
                 }
