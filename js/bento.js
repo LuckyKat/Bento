@@ -142,21 +142,9 @@ bento.define('bento', [
      * Setup renderer (2D context or WebGL)
      */
     var setupRenderer = function (settings, onComplete) {
-        var rendererName = settings.renderer;
-        settings.renderer = settings.renderer ? settings.renderer.toLowerCase() : 'canvas2d';
-
-        // canvas2d and pixi are reserved names
-        if (settings.renderer === 'canvas2d') {
-            rendererName = 'bento/renderers/canvas2d';
-        } else if (settings.renderer === 'pixi') {
-            rendererName = 'bento/renderers/pixi';
-        } else if (settings.renderer === 'auto') {
-            // auto renderer is deprecated! use canvas2d or pixi
-            console.log('WARNING: auto renderer is deprecated. Please use canvas2d or pixi as renderers.');
-            rendererName = 'bento/renderers/canvas2d';
-        }
         // setup renderer
-        new Renderer(rendererName, canvas, settings, function (rend) {
+        // note: picking and choosing a renderer is deprecated
+        new Renderer('bento/renderers/pixi', canvas, settings, function (rend) {
             console.log('Init ' + rend.name + ' as renderer');
             renderer = rend;
 
