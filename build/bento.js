@@ -2303,43 +2303,29 @@ bento.define('bento', [
     /**
      * Callback for responsive resizing
      */
-    var onResize = function () {
+    var performResize = function () {
         var viewport = Bento.getViewport();
-        var pixiRenderer;
         var screenSize = Utils.getScreenSize();
+        var pixiRenderer;
         var pixelSize = bentoSettings.pixelSize;
         var minWidth = bentoSettings.responsiveResize.minWidth;
         var maxWidth = bentoSettings.responsiveResize.maxWidth;
         var minHeight = bentoSettings.responsiveResize.minHeight;
         var maxHeight = bentoSettings.responsiveResize.maxHeight;
-        var landscape = bentoSettings.responsiveResize.landscape;
-        // lock width, fill height
+        var lockedRotation = bentoSettings.responsiveResize.lockedRotation;
+
+        // get scaled screen res
         var canvasDimension = new AutoResize(
-            new Rectangle(0, 0, minWidth, minHeight),
-            landscape ? minWidth : minHeight,
-            landscape ? maxWidth : maxHeight,
-            landscape
+            minWidth,
+            maxWidth,
+            minHeight,
+            maxHeight,
+            lockedRotation
         );
 
+        // we don't have a canvas?
         if (!canvas) {
             return;
-        }
-
-        // respect max/min of other dimension
-        if (landscape) {
-            if (canvasDimension.height > maxHeight) {
-                canvasDimension.height = maxHeight;
-            }
-            if (canvasDimension.height < minHeight) {
-                canvasDimension.height = minHeight;
-            }
-        } else {
-            if (canvasDimension.width > maxWidth) {
-                canvasDimension.width = maxWidth;
-            }
-            if (canvasDimension.width < minWidth) {
-                canvasDimension.width = minWidth;
-            }
         }
 
         // set canvas and viewport sizes
@@ -2350,13 +2336,8 @@ bento.define('bento', [
 
         // css fit to height
         if (canvas.style) {
-            if (landscape) {
-                canvas.style.width = screenSize.width + 'px';
-                canvas.style.height = (screenSize.width / (viewport.width / viewport.height)) + 'px';
-            } else {
-                canvas.style.height = screenSize.height + 'px';
-                canvas.style.width = (screenSize.height * (viewport.width / viewport.height)) + 'px';
-            }
+            canvas.style.height = screenSize.height + 'px';
+            canvas.style.width = (screenSize.height * (viewport.width / viewport.height)) + 'px';
         }
 
         // log results
@@ -2374,9 +2355,20 @@ bento.define('bento', [
                 // use the resize function on pixi
                 pixiRenderer = Bento.getRenderer().getPixiRenderer();
                 pixiRenderer.resize(canvas.width, canvas.height);
-            } 
-
+            }
         }
+        // update input and canvas
+        Bento.input.updateCanvas();
+        // clear the task id
+        resizeTaskId = null;
+    };
+    var resizeTaskId = null;
+    var onResize = function () {
+        // start a 100ms timeout, if interupted with a repeat event start over
+        if (resizeTaskId != null) {
+            window.clearTimeout(resizeTaskId);
+        }
+        resizeTaskId = window.setTimeout(performResize, 100);
     };
     /**
      * Take screenshots based on events
@@ -2435,12 +2427,12 @@ bento.define('bento', [
          * @param {Boolean} settings.preventContextMenu - Stops the context menu from appearing in browsers when using right click
          * @param {Boolean} settings.autoDisposeTextures - Removes all internal textures on screen ends to reduce memory usage
          * @param {Object} settings.responsiveResize - Bento's strategy of resizing to mobile screen sizes. 
-         * In case of portrait: Bento locks the width and fills the height. If min/max height is reached, the width is adapted up to its min/max.
-         * @param {Boolean} settings.responsiveResize.landscape - Portrait (false) or Landscape (true)
-         * @param {Number} settings.responsiveResize.minWidth - Minimum width
-         * @param {Number} settings.responsiveResize.maxWidth - Maximum width
-         * @param {Number} settings.responsiveResize.minHeight - Minimum height
-         * @param {Number} settings.responsiveResize.maxHeight - Maximum height
+         * In case of portrait: Bento locks the  min height and fills the width by aspect ratio until the max width is reached. If min width is reached, the height is then adapted by aspect ratio up to it's defined maximum.
+         * @param {Number} settings.responsiveResize.minWidth - Minimum width in portrait.
+         * @param {Number} settings.responsiveResize.maxWidth - Maximum width in portrait.
+         * @param {Number} settings.responsiveResize.minHeight - Minimum height in portrait.
+         * @param {Number} settings.responsiveResize.maxHeight - Maximum height in portrait.
+         * @param {String} settings.responsiveResize.lockedRotation - 'portrait' or 'landscape' enforces an aspect ratio corrseponding to this, instead of handling this automatically, unnecessary to be used if enforcable by another means
          * @param {Object} settings.reload - Settings for module reloading, set the event names for Bento to listen
          * @param {String} settings.reload.simple - Event name for simple reload: reloads modules and resets current screen
          * @param {String} settings.reload.assets - Event name for asset reload: reloads modules and all assets and resets current screen
@@ -3318,15 +3310,16 @@ bento.define('bento/components/fill', [
         }
     };
     Fill.prototype.draw = function (data) {
-        var dimension = this.dimension;
-        var origin = this.origin;
-        data.renderer.fillRect(
-            this.color,
-            dimension.x - origin.x,
-            dimension.y - origin.y,
-            dimension.width,
-            dimension.height
-        );
+        // TODO: use pixi graphics
+        // var dimension = this.dimension;
+        // var origin = this.origin;
+        // data.renderer.fillRect(
+        //     this.color,
+        //     dimension.x - origin.x,
+        //     dimension.y - origin.y,
+        //     dimension.width,
+        //     dimension.height
+        // );
     };
     /**
      * Set origin relative to size
@@ -4435,6 +4428,10 @@ bento.define('bento/components/sprite', [
         this.currentAnimationLength = 0;
         this.currentFrame = 0;
 
+        this.sprite = new window.PIXI.Sprite();
+        this.scaleMode = settings.scaleMode || (Bento.getAntiAlias() ? window.PIXI.SCALE_MODES.LINEAR : window.PIXI.SCALE_MODES.NEAREST);
+
+
         this.onCompleteCallback = function () {};
         this.setup(settings);
     };
@@ -4807,25 +4804,49 @@ setOriginRelative(new Vector2(${1:0}, ${2:0}));
     };
 
     Sprite.prototype.draw = function (data) {
-        var entity = data.entity;
+       var entity = data.entity;
 
         if (!this.currentAnimation || !this.visible) {
             return;
         }
-
         this.updateFrame();
-
-        data.renderer.drawImage(
+        this.updateSprite(
             this.spriteImage,
             this.sourceX,
             this.sourceY,
             this.frameWidth,
-            this.frameHeight,
-            (-this.origin.x) | 0,
-            (-this.origin.y) | 0,
-            this.frameWidth,
             this.frameHeight
         );
+
+        // draw with pixi
+        data.renderer.translate(-Math.round(this.origin.x), -Math.round(this.origin.y));
+        data.renderer.drawPixi(this.sprite);
+        data.renderer.translate(Math.round(this.origin.x), Math.round(this.origin.y));
+    };
+    Sprite.prototype.updateSprite = function (packedImage, sx, sy, sw, sh) {
+        var rectangle;
+        var sprite;
+        var texture;
+        var image;
+
+        if (!packedImage) {
+            return;
+        }
+        image = packedImage.image;
+        if (!image.texture) {
+            // initialize pixi baseTexture
+            image.texture = new window.PIXI.BaseTexture(image, this.scaleMode);
+            image.frame = new window.PIXI.Texture(image.texture);
+        }
+        texture = image.frame;
+        rectangle = texture._frame;
+        rectangle.x = sx;
+        rectangle.y = sy;
+        rectangle.width = sw;
+        rectangle.height = sh;
+        texture.updateUvs();
+
+        this.sprite.texture = texture;
     };
     Sprite.prototype.toString = function () {
         return '[object Sprite]';
@@ -9742,7 +9763,8 @@ bento.define('bento/managers/input', [
                 evt.id = -1;
             },
             updatePointer = function (evt) {
-                var i = 0, l;
+                var i = 0,
+                    l;
                 for (i = 0, l = pointers.length; i < l; ++i) {
                     if (pointers[i].id === evt.id) {
                         pointers[i].position = evt.position;
@@ -9753,7 +9775,8 @@ bento.define('bento/managers/input', [
                 }
             },
             removePointer = function (evt) {
-                var i = 0, l;
+                var i = 0,
+                    l;
                 for (i = 0, l = pointers.length; i < l; ++i) {
                     if (pointers[i].id === evt.id) {
                         pointers.splice(i, 1);
@@ -9996,7 +10019,8 @@ bento.define('bento/managers/input', [
              * continually checking for input is the only way for now.
              */
             initRemote = function () {
-                var i = 0, l,
+                var i = 0,
+                    l,
                     tvOSGamepads;
 
                 if (window.ejecta) {
@@ -10033,7 +10057,8 @@ bento.define('bento/managers/input', [
                 }
             },
             remoteButtonDown = function (id) {
-                var i = 0, l,
+                var i = 0,
+                    l,
                     names = Utils.remoteMapping[id];
                 // save value in array
                 remoteButtonsPressed[id] = true;
@@ -10042,7 +10067,8 @@ bento.define('bento/managers/input', [
                     remoteButtonStates[names[i]] = true;
             },
             remoteButtonUp = function (id) {
-                var i = 0, l,
+                var i = 0,
+                    l,
                     names = Utils.remoteMapping[id];
                 // save value in array
                 remoteButtonsPressed[id] = false;
@@ -10148,8 +10174,6 @@ bento.define('bento/managers/input', [
         // note: it's a bit tricky with order of event listeners, make sure resizing is done first
         // otherwise updateCanvas needs to be called manually afterwards
         if (canvas) {
-            window.addEventListener('resize', updateCanvas, false);
-            window.addEventListener('orientationchange', updateCanvas, false);
             updateCanvas();
         }
 
@@ -13104,73 +13128,48 @@ bento.define('bento/math/vector2', [
     return Vector2;
 });
 /**
- * A helper module that returns a rectangle with the same aspect ratio as the screen size.
- * Assuming portrait mode, autoresize holds the width and then fills up the height
+ * A helper module that returns an object with a correctly sized width and height for the aspect ratio
+ * 'type' defines the allowed orientation
  * If the height goes over the max or minimum size, then the width gets adapted.
  * <br>Exports: Constructor
  * @module bento/autoresize
  * @moduleName AutoResize
- * @param {Rectangle} canvasDimension - Default size
- * @param {Number} minSize - Minimal height (in portrait mode), if the height goes lower than this,
- * then autoresize will start filling up the width
- * @param {Boolean} isLandscape - Game is landscape, swap operations of width and height
- * @returns Rectangle
+ * @param {Number} minWidth - Lowest clamped width in portrait. Smaller than this, and height is scaled up to fit the aspect ratio. Acts as a 'target dimension'
+ * @param {Number} maxWidth - Max clamped width in portrait.
+ * @param {Number} minHeight - Lowest clamped height in portrait. . Smaller than this, and width is scaled up to fit the aspect ratio. Acts as a 'target dimension'
+ * @param {Number} maxHeight - Max clamped height in portrait.
+ * @param {String} lockedRotation - 'portrait' or 'landscape' - Enforces an aspect ratio for one or the other, not necessary if forcable by other means
+ * @returns Object
  */
 bento.define('bento/autoresize', [
     'bento/utils'
 ], function (Utils) {
-    return function (canvasDimension, minSize, maxSize, isLandscape) {
-        var originalDimension = canvasDimension.clone(),
-            screenSize = Utils.getScreenSize(),
-            innerWidth = screenSize.width,
-            innerHeight = screenSize.height,
-            devicePixelRatio = window.devicePixelRatio,
-            deviceHeight = !isLandscape ? innerHeight * devicePixelRatio : innerWidth * devicePixelRatio,
-            deviceWidth = !isLandscape ? innerWidth * devicePixelRatio : innerHeight * devicePixelRatio,
-            swap = function () {
-                // swap width and height
-                var temp = canvasDimension.width;
-                canvasDimension.width = canvasDimension.height;
-                canvasDimension.height = temp;
-            },
-            setup = function () {
-                var ratio = deviceWidth / deviceHeight;
+    return function (minWidth, maxWidth, minHeight, maxHeight, lockedRotation) {
+        var screenSize = Utils.getScreenSize();
+        // get the ration of screen height to width 
+        var ratio = screenSize.width / screenSize.height;
+        // work out if we are currently in portrait or landscape
+        var isPortrait = (ratio <= 1);
 
-                if (ratio > 1) {
-                    // user is holding device wrong
-                    ratio = 1 / ratio;
-                }
-
-                canvasDimension.height = Math.round(canvasDimension.width / ratio);
-
-                // exceed min size?
-                if (canvasDimension.height < minSize) {
-                    canvasDimension.height = minSize;
-                    canvasDimension.width = Math.round(ratio * canvasDimension.height);
-                }
-                if (canvasDimension.height > maxSize) {
-                    canvasDimension.height = maxSize;
-                    canvasDimension.width = Math.round(ratio * canvasDimension.height);
-                }
-
-                if (isLandscape) {
-                    swap();
-                }
-
-                return canvasDimension;
-            },
-            scrollAndResize = function () {
-                window.scrollTo(0, 0);
-            };
-
-
-        window.addEventListener('orientationchange', scrollAndResize, false);
-
-        if (isLandscape) {
-            swap();
+        //force a specific rotation
+        switch (lockedRotation) {
+        case 'portrait':
+            isPortrait = true;
+            break;
+        case 'landscape':
+            isPortrait = false;
+            break;
         }
 
-        return setup();
+        // create new object with correctly scaled and clamped dimensions
+        var newDimension = (isPortrait) ? {
+            width: Math.ceil(Utils.clamp(minWidth, minHeight * ratio, maxWidth)),
+            height: Math.ceil(Utils.clamp(minHeight, minWidth / ratio, maxHeight))
+        } : {
+            width: Math.ceil(Utils.clamp(minHeight, minWidth * ratio, maxHeight)),
+            height: Math.ceil(Utils.clamp(minWidth, minHeight / ratio, maxWidth))
+        };
+        return newDimension;
     };
 });
 /**
@@ -18317,6 +18316,8 @@ bento.define('bento/tween', [
         // one wants to see the tween move during that pause
         if (!Utils.isDefined(settings.updateWhenPaused)) {
             tweenBehavior.updateWhenPaused = Bento.objects.isPaused();
+        } else {
+            tweenBehavior.updateWhenPaused = settings.updateWhenPaused;
         }
 
         // tween automatically starts
@@ -18760,51 +18761,7 @@ bento.define('bento/renderers/pixi', [
     'bento/renderers/canvas2d'
 ], function (Bento, Utils, TransformMatrix, Canvas2d) {
     var PIXI = window.PIXI;
-    var SpritePool = function (initialSize) {
-        var i;
-        // initialize
-        this.sprites = [];
-        for (i = 0; i < initialSize; ++i) {
-            this.sprites.push(new PIXI.Sprite());
-        }
-        this.index = 0;
-    };
-    SpritePool.prototype.reset = function () {
-        this.index = 0;
-    };
-    SpritePool.prototype.getSprite = function () {
-        var sprite = this.sprites[this.index];
-        if (!sprite) {
-            sprite = new PIXI.Sprite();
-            this.sprites.push(sprite);
-        }
-        this.index += 1;
-        return sprite;
-    };
-    var GraphicsPool = function (initialSize) {
-        var i;
-        // initialize
-        this.graphics = [];
-        for (i = 0; i < initialSize; ++i) {
-            this.graphics.push(new PIXI.Graphics());
-        }
-        this.index = 0;
-    };
-    GraphicsPool.prototype.reset = function () {
-        this.index = 0;
-    };
-    GraphicsPool.prototype.get = function () {
-        var graphic = this.graphics[this.index];
-        if (!graphic) {
-            graphic = new PIXI.Graphics();
-            this.graphics.push(graphic);
-        }
-        this.index += 1;
-        graphic.clear();
-        return graphic;
-    };
-
-    return function (canvas, settings) {
+    var PixiRenderer = function (canvas, settings) {
         var gl;
         var canWebGl = (function () {
             // try making a canvas
@@ -18820,42 +18777,12 @@ bento.define('bento/renderers/pixi', [
         var matrices = [];
         var alpha = 1;
         var color = 0xFFFFFF;
-        var pixiRenderer;
-        var spriteRenderer;
-        var meshRenderer;
-        var graphicsRenderer;
-        var particleRenderer;
-        var test = false;
+        var renderer;
         var cocoonScale = 1;
         var pixelSize = settings.pixelSize || 1;
-        var tempDisplayObjectParent = null;
-        var spritePool = new SpritePool(2000);
-        var graphicsPool = new GraphicsPool(500);
-        var transformObject = {
-            worldTransform: null,
-            worldAlpha: 1,
-            children: []
-        };
-        var getPixiMatrix = function () {
-            var pixiMatrix = new PIXI.Matrix();
-            pixiMatrix.a = matrix.a;
-            pixiMatrix.b = matrix.b;
-            pixiMatrix.c = matrix.c;
-            pixiMatrix.d = matrix.d;
-            pixiMatrix.tx = matrix.tx;
-            pixiMatrix.ty = matrix.ty;
-            return pixiMatrix;
-        };
-        var getFillGraphics = function (color) {
-            var graphics = graphicsPool.get();
-            var colorInt = color[2] * 255 + (color[1] * 255 << 8) + (color[0] * 255 << 16);
-            var alphaColor = color[3];
-            graphics.beginFill(colorInt, alphaColor);
-            graphics.worldTransform = getPixiMatrix();
-            graphics.worldAlpha = alpha;
-            return graphics;
-        };
-        var renderer = {
+        var pixiMatrix = new PIXI.Matrix();
+        var stage = new PIXI.Container();
+        var pixiRenderer = {
             name: 'pixi',
             init: function () {
 
@@ -18891,137 +18818,36 @@ bento.define('bento/renderers/pixi', [
                 matrix.multiplyWith(transform.rotate(angle));
             },
             fillRect: function (color, x, y, w, h) {
-                var graphics = getFillGraphics(color);
-                graphics.drawRect(x, y, w, h);
-
-                pixiRenderer.setObjectRenderer(graphicsRenderer);
-                graphicsRenderer.render(graphics);
+                return;
             },
             fillCircle: function (color, x, y, radius) {
-                var graphics = getFillGraphics(color);
-                graphics.drawCircle(x, y, radius);
-
-                pixiRenderer.setObjectRenderer(graphicsRenderer);
-                graphicsRenderer.render(graphics);
-
+                return;
             },
             strokeRect: function (color, x, y, w, h, lineWidth) {
-                var graphics = graphicsPool.get();
-                var colorInt = color[2] * 255 + (color[1] * 255 << 8) + (color[0] * 255 << 16);
-                var alphaColor = color[3];
-                graphics.worldTransform = getPixiMatrix();
-                graphics.worldAlpha = alpha;
-
-                graphics.lineStyle(lineWidth, colorInt, alphaColor);
-                graphics.drawRect(x, y, w, h);
-
-                pixiRenderer.setObjectRenderer(graphicsRenderer);
-                graphicsRenderer.render(graphics);
+                return;
             },
             strokeCircle: function (color, x, y, radius, sAngle, eAngle, lineWidth) {
-                var graphics = graphicsPool.get();
-                var colorInt = color[2] * 255 + (color[1] * 255 << 8) + (color[0] * 255 << 16);
-                var alphaColor = color[3];
-                graphics.worldTransform = getPixiMatrix();
-                graphics.worldAlpha = alpha;
-
-                graphics
-                    .lineStyle(lineWidth, colorInt, alphaColor)
-                    .arc(x, y, radius, sAngle, eAngle);
-
-                pixiRenderer.setObjectRenderer(graphicsRenderer);
-                graphicsRenderer.render(graphics);
-
+                return;
             },
             drawLine: function (color, ax, ay, bx, by, width) {
-                var graphics = getFillGraphics(color);
-                var colorInt = color[2] * 255 + (color[1] * 255 << 8) + (color[0] * 255 << 16);
-
-                if (!Utils.isDefined(width)) {
-                    width = 1;
-                }
-                if (!Utils.isDefined(color[3])) {
-                    color[3] = 1;
-                }
-
-                graphics
-                    .lineStyle(width, colorInt, color[3])
-                    .moveTo(ax, ay)
-                    .lineTo(bx, by)
-                    .endFill();
-
-                pixiRenderer.setObjectRenderer(graphicsRenderer);
-                graphicsRenderer.render(graphics);
+                return;
             },
             drawImage: function (packedImage, sx, sy, sw, sh, x, y, w, h) {
-                var image = packedImage.image;
-                var px = packedImage.x;
-                var py = packedImage.y;
-                var rectangle;
-                var sprite = spritePool.getSprite();
-                var texture;
-                // If image and frame size don't correspond Pixi will throw an error and break the game.
-                // This check tries to prevent that.
-                if (px + sx + sw > image.width || py + sy + sh > image.height) {
-                    console.error("Warning: image and frame size do not correspond.", image);
-                    return;
-                }
-                if (!image.texture) {
-                    // initialize pixi baseTexture
-                    image.texture = new PIXI.BaseTexture(image, Bento.getAntiAlias() ? PIXI.SCALE_MODES.LINEAR : PIXI.SCALE_MODES.NEAREST);
-                    image.frame = new PIXI.Texture(image.texture);
-                }
-                // without spritepool
-                /*
-                rectangle = new PIXI.Rectangle(px + sx, py + sy, sw, sh);
-                texture = new PIXI.Texture(image.texture, rectangle);
-                texture._updateUvs();
-                sprite = new PIXI.Sprite(texture);
-                */
-
-                // with spritepool
-                texture = image.frame;
-                rectangle = texture._frame;
-                rectangle.x = px + sx;
-                rectangle.y = py + sy;
-                rectangle.width = sw;
-                rectangle.height = sh;
-                texture._updateUvs();
-                sprite._texture = texture;
-
-                // apply x, y, w, h
-                renderer.save();
-                renderer.translate(x, y);
-                renderer.scale(w / sw, h / sh);
-
-                sprite.worldTransform = matrix;
-                sprite.worldAlpha = alpha;
-
-                // push into batch
-                pixiRenderer.setObjectRenderer(spriteRenderer);
-                spriteRenderer.render(sprite);
-
-                renderer.restore();
-
-                // did the spriteRenderer flush in the meantime?
-                if (spriteRenderer.currentBatchSize === 0) {
-                    // the spritepool can be reset as well then
-                    spritePool.reset();
-                    graphicsPool.reset();
-                }
+                return;
             },
             begin: function () {
-                spriteRenderer.start();
                 if (pixelSize !== 1 || Utils.isCocoonJs()) {
                     this.save();
                     this.scale(pixelSize * cocoonScale, pixelSize * cocoonScale);
                 }
             },
             flush: function () {
-                // note: only spriterenderer has an implementation of flush
-                spriteRenderer.flush();
-                spritePool.reset();
-                graphicsPool.reset();
+                renderer.render(stage);
+                while (stage.children.length) {
+                    // clean up
+                    stage.removeChild(stage.children[0]);
+                }
+
                 if (pixelSize !== 1 || Utils.isCocoonJs()) {
                     this.restore();
                 }
@@ -19032,33 +18858,34 @@ bento.define('bento/renderers/pixi', [
             setOpacity: function (value) {
                 alpha = value;
             },
+            render: function (displayObject) {
+                this.drawPixi(displayObject);
+            },
             /*
              * Pixi only feature: draws any pixi displayObject
              */
             drawPixi: function (displayObject) {
-                // trick the renderer by setting our own parent
-                transformObject.worldTransform = matrix;
-                transformObject.worldAlpha = alpha;
+                // set piximatrix to current transform matrix
+                pixiMatrix.a = matrix.a;
+                pixiMatrix.b = matrix.b;
+                pixiMatrix.c = matrix.c;
+                pixiMatrix.d = matrix.d;
+                pixiMatrix.tx = matrix.tx;
+                pixiMatrix.ty = matrix.ty;
 
-                // method 1, replace the "parent" that the renderer swaps with
-                // maybe not efficient because it calls flush all the time?
-                // pixiRenderer._tempDisplayObjectParent = transformObject;
-                // pixiRenderer.render(displayObject);
-
-                // method 2, set the object parent and update transform
-                displayObject.parent = transformObject;
-                displayObject.updateTransform();
-                displayObject.renderWebGL(pixiRenderer);
+                stage.addChild(displayObject);
+                displayObject.transform.setFromMatrix(pixiMatrix);
+                displayObject.alpha = alpha;
             },
             getContext: function () {
                 return gl;
             },
             getPixiRenderer: function () {
-                return pixiRenderer;
+                return renderer;
             },
             // pixi specific: update the webgl view, needed if the canvas changed size
             updateSize: function () {
-                pixiRenderer.resize(canvas.width, canvas.height);
+                renderer.resize(canvas.width, canvas.height);
             }
         };
 
@@ -19072,18 +18899,13 @@ bento.define('bento/renderers/pixi', [
                 canvas.width *= cocoonScale;
                 canvas.height *= cocoonScale;
             }
-            pixiRenderer = new PIXI.WebGLRenderer(canvas.width, canvas.height, {
+            renderer = new PIXI.Renderer({
                 view: canvas,
                 backgroundColor: 0x000000,
-                clearBeforeRender: false
+                clearBeforeRender: false,
+                antialias: Bento.getAntiAlias()
             });
-            pixiRenderer.filterManager.setFilterStack(pixiRenderer.renderTarget.filterStack);
-            tempDisplayObjectParent = pixiRenderer._tempDisplayObjectParent;
-            spriteRenderer = pixiRenderer.plugins.sprite;
-            graphicsRenderer = pixiRenderer.plugins.graphics;
-            meshRenderer = pixiRenderer.plugins.mesh;
-
-            return renderer;
+            return pixiRenderer;
         } else {
             if (!window.PIXI) {
                 console.log('WARNING: PIXI library is missing, reverting to Canvas2D renderer');
@@ -19093,6 +18915,7 @@ bento.define('bento/renderers/pixi', [
             return Canvas2d(canvas, settings);
         }
     };
+    return PixiRenderer;
 });
 /**
  * Transform module

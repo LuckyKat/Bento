@@ -113,6 +113,10 @@ bento.define('bento/components/sprite', [
         this.currentAnimationLength = 0;
         this.currentFrame = 0;
 
+        this.sprite = new window.PIXI.Sprite();
+        this.scaleMode = settings.scaleMode || (Bento.getAntiAlias() ? window.PIXI.SCALE_MODES.LINEAR : window.PIXI.SCALE_MODES.NEAREST);
+
+
         this.onCompleteCallback = function () {};
         this.setup(settings);
     };
@@ -485,25 +489,49 @@ setOriginRelative(new Vector2(${1:0}, ${2:0}));
     };
 
     Sprite.prototype.draw = function (data) {
-        var entity = data.entity;
+       var entity = data.entity;
 
         if (!this.currentAnimation || !this.visible) {
             return;
         }
-
         this.updateFrame();
-
-        data.renderer.drawImage(
+        this.updateSprite(
             this.spriteImage,
             this.sourceX,
             this.sourceY,
             this.frameWidth,
-            this.frameHeight,
-            (-this.origin.x) | 0,
-            (-this.origin.y) | 0,
-            this.frameWidth,
             this.frameHeight
         );
+
+        // draw with pixi
+        data.renderer.translate(-Math.round(this.origin.x), -Math.round(this.origin.y));
+        data.renderer.drawPixi(this.sprite);
+        data.renderer.translate(Math.round(this.origin.x), Math.round(this.origin.y));
+    };
+    Sprite.prototype.updateSprite = function (packedImage, sx, sy, sw, sh) {
+        var rectangle;
+        var sprite;
+        var texture;
+        var image;
+
+        if (!packedImage) {
+            return;
+        }
+        image = packedImage.image;
+        if (!image.texture) {
+            // initialize pixi baseTexture
+            image.texture = new window.PIXI.BaseTexture(image, this.scaleMode);
+            image.frame = new window.PIXI.Texture(image.texture);
+        }
+        texture = image.frame;
+        rectangle = texture._frame;
+        rectangle.x = sx;
+        rectangle.y = sy;
+        rectangle.width = sw;
+        rectangle.height = sh;
+        texture.updateUvs();
+
+        this.sprite.texture = texture;
     };
     Sprite.prototype.toString = function () {
         return '[object Sprite]';

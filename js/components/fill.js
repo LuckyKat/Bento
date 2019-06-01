@@ -69,15 +69,16 @@ bento.define('bento/components/fill', [
         }
     };
     Fill.prototype.draw = function (data) {
-        var dimension = this.dimension;
-        var origin = this.origin;
-        data.renderer.fillRect(
-            this.color,
-            dimension.x - origin.x,
-            dimension.y - origin.y,
-            dimension.width,
-            dimension.height
-        );
+        // TODO: use pixi graphics
+        // var dimension = this.dimension;
+        // var origin = this.origin;
+        // data.renderer.fillRect(
+        //     this.color,
+        //     dimension.x - origin.x,
+        //     dimension.y - origin.y,
+        //     dimension.width,
+        //     dimension.height
+        // );
     };
     /**
      * Set origin relative to size
