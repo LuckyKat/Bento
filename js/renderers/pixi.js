@@ -149,6 +149,8 @@ bento.define('bento/renderers/pixi', [
             }
             renderer = new PIXI.Renderer({
                 view: canvas,
+                width: canvas.width,
+                height: canvas.height,
                 backgroundColor: 0x000000,
                 clearBeforeRender: false,
                 antialias: Bento.getAntiAlias()

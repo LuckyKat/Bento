@@ -2283,7 +2283,6 @@ bento.define('bento', [
             // set anti aliasing after renderer is created
             smoothing = settings.antiAlias;
             Bento.setAntiAlias(smoothing);
-
             gameData = Bento.getGameData();
             onComplete();
         });
@@ -2688,6 +2687,9 @@ bento.define('bento', [
                 return;
             }
             smoothing = antiAlias;
+            if (window.PIXI && window.PIXI.settings) {
+                window.PIXI.settings.SCALE_MODE = antiAlias ? window.PIXI.SCALE_MODES.LINEAR : window.PIXI.SCALE_MODES.NEAREST;
+            } 
             // cocoon only: set antiAlias with smoothing parameter
             if (Utils.isCocoonJs() && window.Cocoon && window.Cocoon.Utils) {
                 window.Cocoon.Utils.setAntialias(antiAlias);
@@ -62641,6 +62643,8 @@ bento.define('bento/renderers/pixi', [
             }
             renderer = new PIXI.Renderer({
                 view: canvas,
+                width: canvas.width,
+                height: canvas.height,
                 backgroundColor: 0x000000,
                 clearBeforeRender: false,
                 antialias: Bento.getAntiAlias()
