@@ -505,7 +505,7 @@ setOriginRelative(new Vector2(${1:0}, ${2:0}));
 
         // draw with pixi
         data.renderer.translate(-Math.round(this.origin.x), -Math.round(this.origin.y));
-        data.renderer.drawPixi(this.sprite);
+        data.renderer.render(this.sprite);
         data.renderer.translate(Math.round(this.origin.x), Math.round(this.origin.y));
     };
     Sprite.prototype.updateSprite = function (packedImage, sx, sy, sw, sh) {
@@ -521,10 +521,12 @@ setOriginRelative(new Vector2(${1:0}, ${2:0}));
         if (!image.texture) {
             // initialize pixi baseTexture
             image.texture = new window.PIXI.BaseTexture(image, this.scaleMode);
-            image.frame = new window.PIXI.Texture(image.texture);
         }
-        texture = image.frame;
-        rectangle = texture._frame;
+
+        // TODO: cache the PIXI.Texture instead of generating a new one every time
+        this.frame = new window.PIXI.Texture(image.texture);
+        texture = this.frame;
+        rectangle = texture.frame;
         rectangle.x = sx;
         rectangle.y = sy;
         rectangle.width = sw;

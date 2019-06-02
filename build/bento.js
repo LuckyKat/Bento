@@ -3298,6 +3298,28 @@ bento.define('bento/components/fill', [
             this.origin.x = this.dimension.width * settings.originRelative.x;
             this.origin.y = this.dimension.height * settings.originRelative.y;
         }
+
+        this.graphics = new PIXI.Graphics();
+
+        // start a fill
+        this.startFill();
+        // TODO: if this.dimension is edited, the fill should be redone
+    };
+    Fill.prototype.startFill = function () {
+        var color = this.color;
+        var dimension = this.dimension;
+        var origin = this.origin;
+        var colorInt = color[2] * 255 + (color[1] * 255 << 8) + (color[0] * 255 << 16);
+        this.graphics.clear();
+        this.graphics.beginFill(colorInt);
+        this.graphics.drawRect(
+            dimension.x - origin.x,
+            dimension.y - origin.y,
+            dimension.width,
+            dimension.height
+        );
+        this.graphics.endFill();
+
     };
     Fill.prototype.draw = function (data) {
         // TODO: use pixi graphics
@@ -3310,6 +3332,7 @@ bento.define('bento/components/fill', [
         //     dimension.width,
         //     dimension.height
         // );
+        data.renderer.render(this.graphics);
     };
     /**
      * Set origin relative to size
@@ -4734,7 +4757,7 @@ setOriginRelative(new Vector2(${1:0}, ${2:0}));
 
         // draw with pixi
         data.renderer.translate(-Math.round(this.origin.x), -Math.round(this.origin.y));
-        data.renderer.drawPixi(this.sprite);
+        data.renderer.render(this.sprite);
         data.renderer.translate(Math.round(this.origin.x), Math.round(this.origin.y));
     };
     Sprite.prototype.updateSprite = function (packedImage, sx, sy, sw, sh) {
@@ -4750,10 +4773,12 @@ setOriginRelative(new Vector2(${1:0}, ${2:0}));
         if (!image.texture) {
             // initialize pixi baseTexture
             image.texture = new window.PIXI.BaseTexture(image, this.scaleMode);
-            image.frame = new window.PIXI.Texture(image.texture);
         }
-        texture = image.frame;
-        rectangle = texture._frame;
+
+        // TODO: cache the PIXI.Texture instead of generating a new one every time
+        this.frame = new window.PIXI.Texture(image.texture);
+        texture = this.frame;
+        rectangle = texture.frame;
         rectangle.x = sx;
         rectangle.y = sy;
         rectangle.width = sw;

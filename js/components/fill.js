@@ -67,6 +67,28 @@ bento.define('bento/components/fill', [
             this.origin.x = this.dimension.width * settings.originRelative.x;
             this.origin.y = this.dimension.height * settings.originRelative.y;
         }
+
+        this.graphics = new PIXI.Graphics();
+
+        // start a fill
+        this.startFill();
+        // TODO: if this.dimension is edited, the fill should be redone
+    };
+    Fill.prototype.startFill = function () {
+        var color = this.color;
+        var dimension = this.dimension;
+        var origin = this.origin;
+        var colorInt = color[2] * 255 + (color[1] * 255 << 8) + (color[0] * 255 << 16);
+        this.graphics.clear();
+        this.graphics.beginFill(colorInt);
+        this.graphics.drawRect(
+            dimension.x - origin.x,
+            dimension.y - origin.y,
+            dimension.width,
+            dimension.height
+        );
+        this.graphics.endFill();
+
     };
     Fill.prototype.draw = function (data) {
         // TODO: use pixi graphics
@@ -79,6 +101,7 @@ bento.define('bento/components/fill', [
         //     dimension.width,
         //     dimension.height
         // );
+        data.renderer.render(this.graphics);
     };
     /**
      * Set origin relative to size
