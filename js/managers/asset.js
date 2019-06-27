@@ -12,13 +12,15 @@ bento.define('bento/managers/asset', [
     'bento/packedimage',
     'bento/utils',
     'audia',
-    'lzstring'
+    'lzstring',
+    'bento/math/rectangle'
 ], function (
     EventSystem,
     PackedImage,
     Utils,
     Audia,
-    LZString
+    LZString,
+    Rectangle
 ) {
     'use strict';
     return function (settings) {
@@ -43,6 +45,7 @@ bento.define('bento/managers/asset', [
             'packed-spritesheets': {},
             'packed-json': {}
         };
+        var lazyLoading = {}; // images that are in the process of being loaded (to prevent duplicates)
         var spineAssetLoader;
         var tempSpineImage;
         /**
@@ -225,6 +228,8 @@ bento.define('bento/managers/asset', [
             }
 
             img.src = source + (useQueries ? '?t=' + now : '');
+
+            return img;
         };
         var loadTTF = function (name, source, callback) {
             // for every font to load we measure the width on a canvas
@@ -894,7 +899,7 @@ bento.define('bento/managers/asset', [
             }
             // count the number of assets first
             // get images
-            if (Utils.isDefined(group.images)) {
+            if (Utils.isDefined(group.images) && !group.dimensions) {
                 assetCount += Utils.getKeyLength(group.images);
                 for (asset in group.images) {
                     if (!group.images.hasOwnProperty(asset)) {
@@ -1220,11 +1225,49 @@ bento.define('bento/managers/asset', [
                 image = getImageElement(name);
                 if (!image) {
                     Utils.log("ERROR: Image " + name + " could not be found");
-                    return null;
+                    packedImage = lazyLoadImage(name);
+                    if (!packedImage) {
+                        // cannot lazy load
+                        return null;
+                    }
+                    assets.texturePacker[name] = packedImage;
+                } else {
+                    packedImage = new PackedImage(image);
+                    assets.texturePacker[name] = packedImage;
                 }
-                packedImage = PackedImage(image);
-                assets.texturePacker[name] = packedImage;
             }
+            return packedImage;
+        };
+        var lazyLoadImage = function (name) {
+            var imagePath;
+            var dimension;
+            var image;
+            var packedImage;
+            // try to find the asset in assetGroups
+            Utils.forEach(assetGroups, function (assetGroup, groupName, l, breakLoop) {
+                if (assetGroup.dimension) {
+                    dimension = assetGroup.dimension[name];
+                }
+                if (assetGroup.images && assetGroup.images[name]) {
+                    imagePath = assetGroup.path + assetGroup.images[name];
+                }
+                if (dimension && imagePath) {
+                    breakLoop();
+                }
+            });
+
+            if (!imagePath || !dimension) {
+                // failed
+                return null;
+            }
+            // todo: prevent from loading twice
+            image = loadImage(name, imagePath, function (error) {
+                if (error) {
+                    return;
+                }
+            });
+            // create packed image
+            packedImage = new PackedImage(image, new Rectangle(0, 0, dimension.width, dimension.height));
             return packedImage;
         };
         /**
