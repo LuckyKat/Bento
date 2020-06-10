@@ -161,10 +161,10 @@ bento.define('bento/components/anchor', [
             insets.bottom = window.getComputedStyle(document.documentElement).getPropertyValue("--sab");
             insets.left = window.getComputedStyle(document.documentElement).getPropertyValue("--sal");
 
-            insets.top = parseInt(insets.top) / screenSize.height * viewport.height;
-            insets.bottom = parseInt(insets.bottom) / screenSize.height * viewport.height;
-            insets.left = parseInt(insets.left) / screenSize.width * viewport.width;
-            insets.right = parseInt(insets.right) / screenSize.width * viewport.width;
+            insets.top = parseInt(insets.top) / (screenSize.height * window.devicePixelRatio) * viewport.height;
+            insets.bottom = parseInt(insets.bottom) / (screenSize.height * window.devicePixelRatio) * viewport.height;
+            insets.left = parseInt(insets.left) / (screenSize.width * window.devicePixelRatio) * viewport.width;
+            insets.right = parseInt(insets.right) / (screenSize.width * window.devicePixelRatio) * viewport.width;
         }
 
         // use overrides if available
