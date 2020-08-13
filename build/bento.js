@@ -9491,12 +9491,52 @@ bento.define('bento/managers/asset', [
                 json: null,
                 jsonRaw: null,
                 atlas: null,
+                skinImages: {
+                     // links skin with images, e.g.
+                     // "skinName": ["image1.png", "image2.png"]
+                },
+                loadImage: function (sourcePng, onLoadImage) {
+                    var url;
+                    if (isBase64) {
+                        if (source.images[sourcePng]) {
+                            // load the included base64 string instead
+                            url = source.images[sourcePng];
+                        } else {
+                            throw 'Could not find png ' + sourcePng;
+                        }
+                    } else {
+                        var sourcePath = (function () {
+                            // remove the final part
+                            var paths = source.split('/');
+                            paths.splice(-1, 1);
+                            return paths.join('/') + '/';
+                        })();
+                        url = sourcePath + sourcePng;
+                    }
+                    loadImage(sourcePng, url, function (err, name, img) {
+                        if (err) {
+                            callback(err, name, null);
+                            return;
+                        }
+                        spine3d.images[name] = PackedImage(img);
+                        spine3d.imageCount++;
+                        checkForCompletion();
+                        if (onLoadImage) {
+                            onLoadImage();
+                        }
+                    });
+                }
             };
             var loading = 0;
 
             var checkForCompletion = function () {
-                if (spine3d.imageCount >= loading && spine3d.json !== null && spine3d.atlas !== null) {
+                if (spine3d.imageCount >= loading && spine3d.json !== null && spine3d.atlas !== null && callback) {
+                    // link the skins with the required images
+                    linkSkinWithImage();
+
                     callback(null, name, spine3d);
+                    // prevent callback again
+                    callback = null;
                 }
             };
             var loadAtlas = function (name, source, callback) {
@@ -9536,44 +9576,74 @@ bento.define('bento/managers/asset', [
                 };
                 xhr.send(null);
             };
-            
+
             var readAtlas = function (atlas) {
                 var atlasLines = atlas.split(/\r\n|\r|\n/);
                 var imagePaths = [];
-                atlasLines.forEach(function(line) {
-                    if(line.includes('.png')) {
+                atlasLines.forEach(function (line) {
+                    if (line.includes('.png')) {
                         imagePaths.push(line);
                     }
                 });
-                loading = imagePaths.length;
-                imagePaths.forEach(function(sourcePng) {
-                    var url;
-                    if (isBase64) {
-                        if (source.images[sourcePng]) {
-                            // load the included base64 string instead
-                            url = source.images[sourcePng];
-                        } else {
-                            throw 'Could not find png ' + sourcePng; 
-                        }
-                    } else {
-                        var sourcePath = (function () {
-                            // remove the final part
-                            var paths = source.split('/');
-                            paths.splice(-1, 1);
-                            return paths.join('/') + '/';
-                        })();
-                        url = sourcePath + sourcePng;
-                    }
-                    loadImage(sourcePng, url, function (err, name, img) {
-                        if (err) {
-                            callback(err, name, null);
-                            return;
-                        }
-                        spine3d.images[name] = PackedImage(img);
-                        spine3d.imageCount++;
-                        checkForCompletion();
+                if (manager.lazyLoadSpine || manager.lazyLoadSpineList.indexOf(name) >= 0) {
+                    loading = 0;
+                    checkForCompletion();
+                } else {
+                    loading = imagePaths.length;
+                    imagePaths.forEach(function (sourcePng) {
+                        spine3d.loadImage(sourcePng);
                     });
-                });
+                }
+            };
+
+            var linkSkinWithImage = function () {
+                var textureToImage = {}; // create a lookup table from the Atlas
+                var skinImages = {};
+                // we need to parse both the json and atlas
+                var collectAtlasTextures = function () {
+                    var atlasLines = spine3d.atlas.split(/\r\n|\r|\n/);
+                    var currentImage;
+                    atlasLines.forEach(function (line) {
+                        if (line.includes('.png')) {
+                            currentImage = line;
+                        } else if (line.indexOf(':') < 0 && currentImage) {
+                            // if the line contains : then it should be a property, we need the texture names
+                            textureToImage[line] = textureToImage[line] || [];
+                            textureToImage[line].push(currentImage);
+                        }
+                    });
+                };
+                var collectSkinTextures = function () {
+                    // we parse the skin attachment and look for the region/textyre that goes with that skin
+                    Utils.forEach(spine3d.json.skins || [], function (skinData) {
+                        var skinName = skinData.name;
+                        // loop through the attachment
+                        Utils.forEach(skinData.attachments, function (attachments, slotName) {
+                            Utils.forEach(attachments || {}, function (attachment, attachmentName) {
+                                // each attachment has a name, presumably this is the texture name
+                                var type = attachment.type || 'region';
+                                var imageNames;
+                                attachmentName = attachment.name || attachmentName;
+                                imageNames = textureToImage[attachmentName];
+
+                                // combine both 
+                                if (type === 'region') {
+                                    // this texture name is pointed to an image that was collected in collectAtlasTextures
+                                    skinImages[skinName] = skinImages[skinName] || [];
+                                    Utils.forEach(imageNames, function (imageName) {
+                                        if (skinImages[skinName].indexOf(imageName) < 0) {
+                                            skinImages[skinName].push(imageName);
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                    });
+                };
+
+                collectAtlasTextures();
+                collectSkinTextures();
+                spine3d.skinImages = skinImages;
             };
 
             var sourceJson;
@@ -10068,7 +10138,7 @@ bento.define('bento/managers/asset', [
 
             // load all assets
             loadAllAssets();
-            
+
             currentlyLoadingGroup = null;
 
             return assetCount;
@@ -10166,7 +10236,7 @@ bento.define('bento/managers/asset', [
         var unload = function (groupName, dispose) {
             // find all assets in this group
             var assetGroup = assetGroups[groupName];
-            
+
             dispose = Utils.getDefault(dispose, true);
 
             if (!assetGroup) {
@@ -10683,6 +10753,7 @@ bento.define('bento/managers/asset', [
         };
         var manager = {
             lazyLoadSpine: false,
+            lazyLoadSpineList: [],
             skipAudioCallback: false,
             reload: reload,
             loadAllAssets: loadAllAssets,
