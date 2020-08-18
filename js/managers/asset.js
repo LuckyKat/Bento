@@ -732,13 +732,17 @@ bento.define('bento/managers/asset', [
 
                                 // combine both 
                                 if (type === 'region') {
-                                    // this texture name is pointed to an image that was collected in collectAtlasTextures
-                                    skinImages[skinName] = skinImages[skinName] || [];
-                                    Utils.forEach(imageNames, function (imageName) {
-                                        if (skinImages[skinName].indexOf(imageName) < 0) {
-                                            skinImages[skinName].push(imageName);
-                                        }
-                                    });
+                                    if (imageNames) {
+                                        // this texture name is pointed to an image that was collected in collectAtlasTextures
+                                        skinImages[skinName] = skinImages[skinName] || [];
+                                        Utils.forEach(imageNames, function (imageName) {
+                                            if (skinImages[skinName].indexOf(imageName) < 0) {
+                                                skinImages[skinName].push(imageName);
+                                            }
+                                        });
+                                    } else {
+                                        console.error('WARNING: attachment ' + attachmentName + ' could not be linked to an image for Spine ' + name)
+                                    }
                                 }
                             });
                         });
