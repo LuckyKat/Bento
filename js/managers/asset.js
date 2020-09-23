@@ -629,6 +629,15 @@ bento.define('bento/managers/asset', [
                             onLoadImage();
                         }
                     });
+                },
+                dispose: function () {
+                    Utils.forEach(spine3d.images, function (image) {
+                        // destroy texture if possible
+                        if (image && image.texture && image.texture.destroy) {
+                            image.texture.destroy();
+                            image.texture = null;
+                        }
+                    });
                 }
             };
             var loading = 0;
