@@ -14,7 +14,8 @@ gulp.task('build', function () {
     return gulp.src([
             'js/**/*.js',
             '!js/main.js',
-            '!js/lib/bento-require.js'
+            '!js/lib/bento-require.js',
+            '!js/lib/require.js',
         ])
         // consistent order
         .pipe(sort())
@@ -25,7 +26,7 @@ gulp.task('build', function () {
         .pipe(jshint.reporter())*/
         // place these two files on top
         .pipe(addsrc.prepend('js/main.js'))
-        .pipe(addsrc.prepend('node_modules/requirejs/require.js'))
+        .pipe(addsrc.prepend('js/lib/require.js'))
         // output bento.js
         .pipe(concat('bento.js'))
         .pipe(gulp.dest('build'));
@@ -60,10 +61,11 @@ gulp.task('min', function () {
             'js/lib/lz-string.js',
             'js/lib/audia.js',
             'js/**/*.js',
-            '!js/lib/bento-require.js'
+            '!js/lib/bento-require.js',
+            '!js/lib/require.js',
         ])
         // add requirejs
-        .pipe(addsrc.prepend('node_modules/requirejs/require.js'))
+        .pipe(addsrc.prepend('js/lib/require.js'))
         .pipe(concat('bento.js'))
         // output bento.min.js
         .pipe(uglify())
@@ -78,7 +80,8 @@ gulp.task('amdless', function () {
             'js/lib/lz-string.js',
             'js/lib/audia.js',
             'js/**/*.js',
-            '!js/lib/bento-require.js'
+            '!js/lib/bento-require.js',
+            '!js/lib/require.js',
         ])
         // add require
         .pipe(addsrc.prepend('js/lib/bento-require.js'))
@@ -103,7 +106,8 @@ gulp.task('switch', function () {
             '!js/entity.js',
             '!js/managers/object.js',
             '!js/math/rectangle.js',
-            '!js/math/vector2.js'
+            '!js/math/vector2.js',
+            '!js/lib/require.js',
         ])
         .pipe(concat('bento-switch.js'))
         .pipe(gulp.dest('build'));
