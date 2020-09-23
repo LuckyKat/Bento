@@ -456,11 +456,18 @@ bento.define('bento/gui/text', [
                 entity.dimension = new Rectangle(0, 0, canvasTarget.width / sharpness, canvasTarget.height / sharpness);
             }
 
-            if (align === 'center') entity.dimension.x = -entity.dimension.width/2;
-            if (align === 'right') entity.dimension.x = -entity.dimension.width;
-
-            if (textBaseline === 'middle') entity.dimension.y = -entity.dimension.height/2;
-            if (textBaseline === 'bottom') entity.dimension.y = -entity.dimension.height;
+            if (align === 'center') {
+                entity.dimension.x = -entity.dimension.width / 2;
+            }
+            if (align === 'right') {
+                entity.dimension.x = -entity.dimension.width;
+            }
+            if (textBaseline === 'middle') {
+                entity.dimension.y = -entity.dimension.height / 2;
+            }
+            if (textBaseline === 'bottom') {
+                entity.dimension.y = -entity.dimension.height;
+            }
 
             // TODO: fix this if needed
             // fit overlay onto canvas
@@ -676,7 +683,7 @@ bento.define('bento/gui/text', [
                             break;
                         }
                     }
-                    if (!(linebreaksOnlyOnSpace && singleString.indexOf(' ') == -1 && singleString.indexOf('\u200b') == -1) ) {
+                    if (!(linebreaksOnlyOnSpace && singleString.indexOf(' ') == -1 && singleString.indexOf('\u200b') == -1)) {
                         // find first space to split (if there are no spaces, we just split at our current position)
                         spacePos = Math.max(subString.lastIndexOf(' '), subString.lastIndexOf('\u200b'));
                         if (spacePos > 0 && spacePos != subString.length) {
@@ -846,8 +853,8 @@ bento.define('bento/gui/text', [
                     }
 
                     box = new Rectangle(
-                        absoluteOrigin.x * -1 || 0,
-                        absoluteOrigin.y * -1 || 0,
+                        (absoluteOrigin.x * -1 || entity.dimension.x),
+                        (absoluteOrigin.y * -1 || entity.dimension.y),
                         maxWidth || entity.dimension.width,
                         maxHeight || entity.dimension.height
                     );

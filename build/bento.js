@@ -2051,6 +2051,16 @@ var requirejs, require, define;
 
     //Set up with config info.
     req(cfg);
+
+    /**
+     * Explicitly set global in the window variable
+     * This part is purposely added for bento.js
+     */
+    if (window) {
+        window.define = define;
+        window.require = require;
+        window.requirejs = requirejs;
+    }
 }(this));
 
 /**
@@ -2262,7 +2272,7 @@ bento.define('bento', [
                 // just append it to the document body
                 parent = document.body;
             }
-            canvas = document.createElement(Utils.isCocoonJS() ? 'screencanvas' : 'canvas');
+            canvas = document.createElement('canvas');
             canvas.id = settings.canvasId;
             parent.appendChild(canvas);
         }
@@ -2489,7 +2499,7 @@ bento.define('bento', [
      */
     var Bento = {
         // version is updated by build, edit package.json
-        version: '1.2.71',
+        version: '1.3.0',
         /**
          * Setup game. Initializes all Bento managers.
          * @name setup
@@ -2770,7 +2780,7 @@ bento.define('bento', [
         },
         /**
          * Set anti alias. On Web platforms with 2d canvas, this settings applies to the main canvas.
-         * On Cocoon, this setting applies to any texture that is loaded next.
+         * In case of ThreeJs, the Sprite component will generate Textures with either THREE.NearestFilter or THREE.LinearFilter
          * @function
          * @instance
          * @param {Boolean} [antiAliasing] - Set anti aliasing
@@ -2785,10 +2795,7 @@ bento.define('bento', [
                 return;
             }
             smoothing = antiAlias;
-            // cocoon only: set antiAlias with smoothing parameter
-            if (Utils.isCocoonJs() && window.Cocoon && window.Cocoon.Utils) {
-                window.Cocoon.Utils.setAntialias(antiAlias);
-            } else if (renderer) {
+            if (renderer) {
                 // alternatively set on 2d canvas
                 context = renderer.getContext();
                 if (context && context.canvas) {
@@ -2814,26 +2821,12 @@ bento.define('bento', [
          * Wrapper for document.createElement('canvas')
          * @function
          * @instance
-         * @param {Boolean} [antiAliasing] - Sets antialiasing (applies to the canvas texture in Cocoon)
          * @name createCanvas
          * @snippet Bento.createCanvas|CanvasElement
         Bento.createCanvas()
          */
         createCanvas: function (antiAlias) {
-            var newCanvas;
-            var cachedSmoothing = smoothing;
-
-            // apply antialias setting
-            if (Utils.isDefined(antiAlias)) {
-                Bento.setAntiAlias(antiAlias);
-            }
-            // create the canvas
-            newCanvas = document.createElement('canvas');
-
-            // revert antialias setting
-            if (Utils.isDefined(antiAlias)) {
-                Bento.setAntiAlias(cachedSmoothing);
-            }
+            var newCanvas = document.createElement('canvas');
 
             return newCanvas;
         },
@@ -9523,6 +9516,15 @@ bento.define('bento/managers/asset', [
                         checkForCompletion();
                         if (onLoadImage) {
                             onLoadImage();
+                        }
+                    });
+                },
+                dispose: function () {
+                    Utils.forEach(spine3d.images, function (image) {
+                        // destroy texture if possible
+                        if (image && image.texture && image.texture.destroy) {
+                            image.texture.destroy();
+                            image.texture = null;
                         }
                     });
                 }
@@ -16610,7 +16612,6 @@ iterate(function (item, i, l, breakLoop) {
  * @param {String/Array} [settings.strokeStyle] - CSS stroke style
  * @param {Bool/Array} [settings.innerStroke] - Whether the particular stroke should be inside the text
  * @param {Bool} [settings.pixelStroke] - Cocoon.io's canvas+ has a bug with text strokes. This is a workaround that draws a stroke by drawing the text multiple times.
- * @param {Bool} [settings.antiAlias] - Set anti aliasing on text (Cocoon only)
  * @param {Boolean} [settings.shadow] - Draws a shadow under the text
  * @param {Vector2} [settings.shadowOffset] - Offset of shadow
  * @param {String} [settings.shadowColor] - Color of the shadow (CSS color specification)
@@ -16634,13 +16635,11 @@ Text({
     lineWidth: ${11:0}, // set to add an outline
     strokeStyle: '${12:#000000}',
     innerStroke: ${13:false},
-    pixelStroke: ${14:true}, // workaround for Cocoon bug
-    antiAlias: ${14:true}, // Cocoon only
-    maxWidth: ${15:undefined},
-    maxHeight: ${16:undefined},
-    linebreaks: ${17:true},
-    drawDebug: ${18:false},
-    components: [$19]
+    maxWidth: ${14:undefined},
+    maxHeight: ${15:undefined},
+    linebreaks: ${16:true},
+    drawDebug: ${17:false},
+    components: [$18]
 });
  * @returns Entity
  */
@@ -17052,6 +17051,19 @@ bento.define('bento/gui/text', [
                 entity.dimension = new Rectangle(0, 0, canvasTarget.width / sharpness, canvasTarget.height / sharpness);
             }
 
+            if (align === 'center') {
+                entity.dimension.x = -entity.dimension.width / 2;
+            }
+            if (align === 'right') {
+                entity.dimension.x = -entity.dimension.width;
+            }
+            if (textBaseline === 'middle') {
+                entity.dimension.y = -entity.dimension.height / 2;
+            }
+            if (textBaseline === 'bottom') {
+                entity.dimension.y = -entity.dimension.height;
+            }
+
             // TODO: fix this if needed
             // fit overlay onto canvas
             if (overlaySprite) {
@@ -17266,7 +17278,7 @@ bento.define('bento/gui/text', [
                             break;
                         }
                     }
-                    if (!(linebreaksOnlyOnSpace && singleString.indexOf(' ') == -1 && singleString.indexOf('\u200b') == -1) ) {
+                    if (!(linebreaksOnlyOnSpace && singleString.indexOf(' ') == -1 && singleString.indexOf('\u200b') == -1)) {
                         // find first space to split (if there are no spaces, we just split at our current position)
                         spacePos = Math.max(subString.lastIndexOf(' '), subString.lastIndexOf('\u200b'));
                         if (spacePos > 0 && spacePos != subString.length) {
@@ -17436,8 +17448,8 @@ bento.define('bento/gui/text', [
                     }
 
                     box = new Rectangle(
-                        absoluteOrigin.x * -1 || 0,
-                        absoluteOrigin.y * -1 || 0,
+                        entity.dimension.x + (absoluteOrigin.x * -1 || 0),
+                        entity.dimension.y + (absoluteOrigin.y * -1 || 0),
                         maxWidth || entity.dimension.width,
                         maxHeight || entity.dimension.height
                     );
@@ -17657,7 +17669,6 @@ bento.define('bento/gui/text', [
 
     return Text;
 });
-
 /**
  * An entity that behaves like a toggle button.
  * <br>Exports: Constructor
