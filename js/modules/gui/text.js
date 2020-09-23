@@ -456,6 +456,12 @@ bento.define('bento/gui/text', [
                 entity.dimension = new Rectangle(0, 0, canvasTarget.width / sharpness, canvasTarget.height / sharpness);
             }
 
+            if (align === 'center') entity.dimension.x = -entity.dimension.width/2;
+            if (align === 'right') entity.dimension.x = -entity.dimension.width;
+
+            if (textBaseline === 'middle') entity.dimension.y = -entity.dimension.height/2;
+            if (textBaseline === 'bottom') entity.dimension.y = -entity.dimension.height;
+
             // TODO: fix this if needed
             // fit overlay onto canvas
             if (overlaySprite) {
