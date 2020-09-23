@@ -17,7 +17,6 @@
  * @param {String/Array} [settings.strokeStyle] - CSS stroke style
  * @param {Bool/Array} [settings.innerStroke] - Whether the particular stroke should be inside the text
  * @param {Bool} [settings.pixelStroke] - Cocoon.io's canvas+ has a bug with text strokes. This is a workaround that draws a stroke by drawing the text multiple times.
- * @param {Bool} [settings.antiAlias] - Set anti aliasing on text (Cocoon only)
  * @param {Boolean} [settings.shadow] - Draws a shadow under the text
  * @param {Vector2} [settings.shadowOffset] - Offset of shadow
  * @param {String} [settings.shadowColor] - Color of the shadow (CSS color specification)
@@ -41,13 +40,11 @@ Text({
     lineWidth: ${11:0}, // set to add an outline
     strokeStyle: '${12:#000000}',
     innerStroke: ${13:false},
-    pixelStroke: ${14:true}, // workaround for Cocoon bug
-    antiAlias: ${14:true}, // Cocoon only
-    maxWidth: ${15:undefined},
-    maxHeight: ${16:undefined},
-    linebreaks: ${17:true},
-    drawDebug: ${18:false},
-    components: [$19]
+    maxWidth: ${14:undefined},
+    maxHeight: ${15:undefined},
+    linebreaks: ${16:true},
+    drawDebug: ${17:false},
+    components: [$18]
 });
  * @returns Entity
  */

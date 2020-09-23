@@ -130,7 +130,7 @@ bento.define('bento', [
                 // just append it to the document body
                 parent = document.body;
             }
-            canvas = document.createElement(Utils.isCocoonJS() ? 'screencanvas' : 'canvas');
+            canvas = document.createElement('canvas');
             canvas.id = settings.canvasId;
             parent.appendChild(canvas);
         }
@@ -638,7 +638,7 @@ bento.define('bento', [
         },
         /**
          * Set anti alias. On Web platforms with 2d canvas, this settings applies to the main canvas.
-         * On Cocoon, this setting applies to any texture that is loaded next.
+         * In case of ThreeJs, the Sprite component will generate Textures with either THREE.NearestFilter or THREE.LinearFilter
          * @function
          * @instance
          * @param {Boolean} [antiAliasing] - Set anti aliasing
@@ -653,10 +653,7 @@ bento.define('bento', [
                 return;
             }
             smoothing = antiAlias;
-            // cocoon only: set antiAlias with smoothing parameter
-            if (Utils.isCocoonJs() && window.Cocoon && window.Cocoon.Utils) {
-                window.Cocoon.Utils.setAntialias(antiAlias);
-            } else if (renderer) {
+            if (renderer) {
                 // alternatively set on 2d canvas
                 context = renderer.getContext();
                 if (context && context.canvas) {
@@ -682,26 +679,12 @@ bento.define('bento', [
          * Wrapper for document.createElement('canvas')
          * @function
          * @instance
-         * @param {Boolean} [antiAliasing] - Sets antialiasing (applies to the canvas texture in Cocoon)
          * @name createCanvas
          * @snippet Bento.createCanvas|CanvasElement
         Bento.createCanvas()
          */
         createCanvas: function (antiAlias) {
-            var newCanvas;
-            var cachedSmoothing = smoothing;
-
-            // apply antialias setting
-            if (Utils.isDefined(antiAlias)) {
-                Bento.setAntiAlias(antiAlias);
-            }
-            // create the canvas
-            newCanvas = document.createElement('canvas');
-
-            // revert antialias setting
-            if (Utils.isDefined(antiAlias)) {
-                Bento.setAntiAlias(cachedSmoothing);
-            }
+            var newCanvas = document.createElement('canvas');
 
             return newCanvas;
         },
