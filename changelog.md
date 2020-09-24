@@ -2,6 +2,8 @@
 
 ## 1.2.3
 
+* Add **Html** module as HTML helper
+* Add **HtmlContainer** GUI module
 * `require` is now explicitly attached to *window*
 * Three.js shader checks are automatically turned off for non-dev builds (these can cause lots of slowdowns)
 * Can pass a color integer toPixi and Three.js Sprites 
@@ -9,6 +11,7 @@
 * Adds *spine3d* asset -> spine files for the Three.js renderer
 * Remove several references to Cocoon.io
 * Bugfix: Sprite animation frame could be cached after calling Sprite.setup 
+* Bugfix: Correct Text dimensions (PR #101) 
 * Bugfix: *this* binding in Tweens (PR #125)
 * Bugfix: Anchor could have wrong inset values (PR #126)
 
