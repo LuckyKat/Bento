@@ -1,7 +1,7 @@
 {
     // JSHint Default Configuration File (as on JSHint website)
     // See http://jshint.com/docs/ for more details
-
+    "esversion": 6,
     "loopfunc": true, // true: Tolerate functions being defined in loops
     "undef": true, // true: Require all non-global variables to be declared (prevents global leaks)
     "predef": [ "bento", "window", "document", "console", "localStorage", "navigator", "Image", "Cocoon", "require", "__dirname", "Buffer", "Uint8Array", "Uint32Array", "THREE"],
