@@ -39,6 +39,26 @@
                 }
                 def.apply(this, arguments);
             },
+            /**
+             * Unwatches specific modules
+             * @function
+             * @instance
+             * @param {Array/Object} mods - Array of module names, or a singular module
+             * @name bento unwatchModules
+             */
+            unwatchModules: function (_modules) {
+                //make it an array if it isn't because i'm lazy
+                if (!Array.isArray(_modules)) {
+                    _modules = [_modules];
+                }
+                // remove everything on this list from the list to be undefined
+                _modules.forEach(function (_module) {
+                    var moduleIndex = _modules.indexOf(_module);
+                    if (moduleIndex !== -1) {
+                        modules.splice(moduleIndex, 1);
+                    }
+                });
+            },
             /*
              * Deletes all loaded modules. See {@link http://requirejs.org/docs/api.html#undef}
              * Modules loaded after bento.watch started are affected
